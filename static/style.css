@@ -17,3 +17,15 @@ button {
     margin: 10px;
     cursor: pointer;
 }
+
+#remoteAudios audio {
+    display: block; /* Display each audio player on a new line */
+    margin: 10px auto; /* Center the audio players */
+    border: 1px solid #ccc;
+    padding: 5px;
+}
+
+#status {
+    font-weight: bold;
+    margin-top: 15px;
+}
