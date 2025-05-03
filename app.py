@@ -22,5 +22,9 @@ def on_leave(data):
     leave_room(room)
     emit('user_left', {'msg': 'A user has left the call.'}, room=room)
 
+@socketio.on('signal')
+def on_signal(data):
+    emit('signal', data, room=data['room'])
+
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=10000)
