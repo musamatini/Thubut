@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import eventlet
-import logging
+import loggin
 
 # Enable basic logging for Flask-SocketIO
 # logging.basicConfig(level=logging.DEBUG)
