@@ -2,30 +2,147 @@ body {
     font-family: Arial, sans-serif;
     background: #f4f4f4;
     padding: 20px;
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1, h2, h3 {
+    color: #333;
+}
+
+.controls {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 input {
     padding: 10px;
-    margin: 10px;
+    margin: 5px;
     font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
 }
 
 button {
     padding: 10px 20px;
     font-size: 16px;
-    margin: 10px;
+    margin: 5px;
     cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    background-color: #5cb85c;
+    color: white;
+    transition: background-color 0.3s ease;
 }
 
-#remoteAudios audio {
-    display: block; /* Display each audio player on a new line */
-    margin: 10px auto; /* Center the audio players */
-    border: 1px solid #ccc;
-    padding: 5px;
+button:hover:not(:disabled) {
+    background-color: #4cae4c;
 }
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+#leaveBtn {
+    background-color: #d9534f;
+}
+#leaveBtn:hover:not(:disabled) {
+    background-color: #c9302c;
+}
+
+#muteBtn {
+    background-color: #f0ad4e;
+}
+#muteBtn:hover:not(:disabled) {
+    background-color: #ec971f;
+}
+#muteBtn.muted {
+    background-color: #777;
+}
+
 
 #status {
     font-weight: bold;
-    margin-top: 15px;
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #555;
+    min-height: 1.2em; /* Prevent layout shifts */
+}
+
+.audio-check {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: 80%;
+    max-width: 500px;
+}
+
+.audio-check audio {
+    width: 90%;
+    margin-top: 5px;
+}
+
+.participants {
+    width: 80%;
+    max-width: 500px;
+    margin-top: 20px;
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#participantList {
+    margin-top: 10px;
+    text-align: left;
+}
+
+.participant {
+    border: 1px solid #eee;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: border-color 0.3s ease;
+}
+
+.participant-info {
+    font-weight: bold;
+}
+
+.participant-status {
+    font-size: 0.9em;
+    color: #666;
+    margin-left: 10px;
+    padding: 3px 6px;
+    border-radius: 3px;
+}
+
+/* Connection States */
+.status-connecting { background-color: #f0ad4e; color: white;}
+.status-connected { background-color: #5cb85c; color: white;}
+.status-failed { background-color: #d9534f; color: white;}
+.status-disconnected { background-color: #777; color: white;}
+.status-closed { background-color: #777; color: white;}
+
+
+/* Speaking Indicator */
+.participant.speaking {
+    border-left: 5px solid #5bc0de; /* Highlight border when speaking */
+}
+
+/* Mute Indicator */
+.participant-status.muted {
+    text-decoration: line-through;
+     background-color: #aaa;
+     color: white;
 }
