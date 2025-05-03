@@ -12,26 +12,9 @@
         <button onclick="leaveCall()">Leave Call</button>
     </div>
     <p id="status"></p>
+    <audio id="remoteAudio" autoplay></audio>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script>
-        const socket = io();
-        function joinCall() {
-            const room = document.getElementById("room").value;
-            socket.emit("join_call", { room });
-            document.getElementById("status").innerText = "Joined room: " + room;
-        }
-        function leaveCall() {
-            const room = document.getElementById("room").value;
-            socket.emit("leave_call", { room });
-            document.getElementById("status").innerText = "Left room: " + room;
-        }
-        socket.on('user_joined', (data) => {
-            alert(data.msg);
-        });
-        socket.on('user_left', (data) => {
-            alert(data.msg);
-        });
-    </script>
+    <script src="/static/webrtc.js"></script>
 </body>
 </html>
