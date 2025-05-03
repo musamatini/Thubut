@@ -23,7 +23,21 @@ def index():
 @socketio.on('connect')
 def on_connect():
     print(f"Client connected: {request.sid}")
+    
+@socketio.on('speaking_status')
+def on_speaking_status(data):
+    """ Broadcast whether a user started or stopped speaking """
+    room = data.get('room')
+    is_speaking = data.get('speaking')
+    sender_sid = request.sid
 
+    if room and room in rooms_data and sender_sid in rooms_data[room]:
+        # print(f"User {sender_sid} speaking status in room {room}: {is_speaking}") # Optional: for debugging
+        emit('speaking_status', {
+            'sid': sender_sid,
+            'speaking': is_speaking
+        }, room=room, skip_sid=sender_sid) # Broadcast to others in the room
+        
 @socketio.on('disconnect')
 def on_disconnect():
     print(f"Client disconnected: {request.sid}")
