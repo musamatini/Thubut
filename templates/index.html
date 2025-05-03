@@ -1,20 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Quran Call</title>
+    <title>P2P Voice Call</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Quran Call</h1>
+    <h1>P2P Voice Call</h1>
     <div>
         <input id="room" placeholder="Enter Room ID">
-        <button onclick="joinCall()">Join Call</button>
-        <button onclick="leaveCall()">Leave Call</button>
+        <button id="joinBtn" onclick="joinCall()">Join Call</button>
+        <button id="leaveBtn" onclick="leaveCall()" disabled>Leave Call</button>
     </div>
-    <p id="status"></p>
-    <audio id="remoteAudio" autoplay></audio>
+    <p id="status">Enter a Room ID and click Join.</p>
 
+    <h2>Remote Audio Streams</h2>
+    <div id="remoteAudios">
+        <!-- Remote audio elements will be added here dynamically -->
+    </div>
+
+    <h2>My Audio (Mic Check - Not Sent)</h2>
+    <audio id="localAudio" muted autoplay controls></audio>
+     <p>Make sure your microphone is working.</p>
+
+    <!-- Include Socket.IO client -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Include your WebRTC logic -->
     <script src="/static/webrtc.js"></script>
 </body>
 </html>
