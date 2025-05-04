@@ -9,12 +9,36 @@ let audioContext = null;
 let analysisFrameId = null; // To control the analysis loop
 
 const config = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] // Free STUN server
-    // Add TURN servers here if needed for complex networks:
-    // { urls: 'turn:your.turn.server.com', username: 'user', credential: 'password' }
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+            urls: 'turn:openrelay.metered.ca:80', // TURN over UDP/TCP on port 80
+            username: 'openrelayproject',
+            credential: 'openrelayproject' // Corrected key: 'credential'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:80?transport=udp', // Explicitly UDP
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+         {
+            urls: 'turn:openrelay.metered.ca:80?transport=tcp', // Explicitly TCP
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turns:openrelay.metered.ca:443', // TURN over TLS (secure) on port 443
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turns:openrelay.metered.ca:443?transport=tcp', // TURN over TLS/TCP
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
+    ]
 };
 
-// --- UI Elements ---
 const joinBtn = document.getElementById('joinBtn');
 const leaveBtn = document.getElementById('leaveBtn');
 const muteBtn = document.getElementById('muteBtn');
