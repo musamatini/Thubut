@@ -1,6 +1,7 @@
 import os
 import eventlet
-eventlet.monkey_patch() # Patch standard libraries for eventlet compatibility
+eventlet.monkey_patch()
+import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -20,6 +21,7 @@ from utils import send_confirmation_email
 
 # App Configuration
 app = Flask(__name__)
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_default_fallback_secret_key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///../instance/app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -45,9 +47,15 @@ login_manager.login_view = 'auth.login' # Route name for the login page
 login_manager.login_message_category = 'info'
 login_manager.login_message = 'Please log in to access this page.'
 
+@app.context_processor
+def inject_now():
+    """Injects the current UTC date/time into the template context."""
+    return {'now': datetime.datetime.utcnow()}
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
 
 # SocketIO Setup
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
