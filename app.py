@@ -7,13 +7,8 @@ import logging
 # logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_very_secret_key!' # Use a better secret key
-# Use eventlet for async mode if needed, otherwise default (threading) might be simpler to start
-# socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
-socketio = SocketIO(app, cors_allowed_origins="*") # Default async mode
-
-# Keep track of users in rooms
-# rooms_data = { 'room_name': { 'socket_id1', 'socket_id2', ... } }
+app.config['SECRET_KEY'] = 'np+(cyaq5vt2$6hjm5v0rrpchdcjl5)p(o1-f3(7q@ykj=_v1t!'
+socketio = SocketIO(app, cors_allowed_origins="*") 
 rooms_data = {}
 
 @app.route('/')
