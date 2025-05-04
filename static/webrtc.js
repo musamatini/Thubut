@@ -8,31 +8,30 @@ let localAudioAnalyser = null; // For analysing local audio level
 let audioContext = null;
 let analysisFrameId = null; // To control the analysis loop
 
+// webrtc.js (Updated config section)
+
 const config = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }, // Add another Google STUN just in case
+
         {
-            urls: 'turn:openrelay.metered.ca:80', // TURN over UDP/TCP on port 80
-            username: 'openrelayproject',
-            credential: 'openrelayproject' // Corrected key: 'credential'
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:80?transport=udp', // Explicitly UDP
+            urls: 'turns:openrelay.metered.ca:443?transport=tcp',
             username: 'openrelayproject',
             credential: 'openrelayproject'
         },
          {
-            urls: 'turn:openrelay.metered.ca:80?transport=tcp', // Explicitly TCP
+            urls: 'turns:openrelay.metered.ca:443', // Defaults likely include UDP
             username: 'openrelayproject',
             credential: 'openrelayproject'
         },
         {
-            urls: 'turns:openrelay.metered.ca:443', // TURN over TLS (secure) on port 443
+            urls: 'turn:openrelay.metered.ca:80?transport=tcp',
             username: 'openrelayproject',
             credential: 'openrelayproject'
         },
         {
-            urls: 'turns:openrelay.metered.ca:443?transport=tcp', // TURN over TLS/TCP
+            urls: 'turn:openrelay.metered.ca:80', // Defaults likely include UDP
             username: 'openrelayproject',
             credential: 'openrelayproject'
         }

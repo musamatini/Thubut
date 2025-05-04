@@ -2,6 +2,7 @@ from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import eventlet
 import logging
+import eventlet.wsgi
 
 # Enable basic logging for Flask-SocketIO
 # logging.basicConfig(level=logging.DEBUG)
@@ -165,6 +166,10 @@ if __name__ == '__main__':
     # Consider using debug=False for production
     # Use use_reloader=False if debug=True and using eventlet/gevent to avoid issues
     socketio.run(app, host='0.0.0.0', port=10000, debug=True, use_reloader=True)
-    # If using eventlet:
-    # import eventlet
-    # eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 10000)), app)
+    app.debug = False # Or True if you still need debug info, but be aware of security risks
+    print(f"Running with eventlet WSGI server. Debug: {app.debug}")
+    try:
+        eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 10000)), app, log_output=app.debug)
+        # log_output=True will print access logs if debug=True
+    except KeyboardInterrupt:
+        print("Server stopped.")
