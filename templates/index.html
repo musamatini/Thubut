@@ -5,7 +5,6 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <body>
     <h1>P2P Voice Call</h1>
 
     <div class="controls">
@@ -17,26 +16,15 @@
 
     <p id="status">Enter a Room ID and click Join.</p>
 
-    <div class="audio-check">
-        <h3>My Audio (Mic Check - Not Sent)</h3>
-        <audio id="localAudio" muted autoplay controls></audio>
-        <p id="localUserStatus" class="user-status">Mic Check</p>
-    </div>
 
     <div class="participants">
         <h2>Participants</h2>
         <div id="participantList">
-            <!-- Participant UI elements will be added here -->
         </div>
     </div>
 
-    <!-- Hidden container for actual remote audio streams -->
     <div id="remoteAudios" style="display: none;"></div>
-
-    <!-- Include Socket.IO client -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <!-- Include your WebRTC logic -->
     <script src="/static/webrtc.js"></script>
-</body>
 </body>
 </html>

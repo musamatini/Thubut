@@ -14,16 +14,16 @@ const config = {
     // { urls: 'turn:your.turn.server.com', username: 'user', credential: 'password' }
 };
 
-// UI Elements
+// --- UI Elements ---
 const joinBtn = document.getElementById('joinBtn');
 const leaveBtn = document.getElementById('leaveBtn');
 const muteBtn = document.getElementById('muteBtn');
 const roomInput = document.getElementById('room');
 const statusDiv = document.getElementById('status');
 const remoteAudiosDiv = document.getElementById('remoteAudios'); // Hidden container for <audio>
-const localAudio = document.getElementById('localAudio');
+// REMOVED: const localAudio = document.getElementById('localAudio');
 const participantListDiv = document.getElementById('participantList');
-const localUserStatusDiv = document.getElementById('localUserStatus');
+// REMOVED: const localUserStatusDiv = document.getElementById('localUserStatus');
 
 
 // --- Core Functions ---
@@ -43,7 +43,7 @@ async function joinCall() {
     try {
         // 1. Get microphone access first
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        localAudio.srcObject = localStream; // Let user hear themselves (muted)
+        // REMOVED: localAudio.srcObject = localStream; // No longer playing local audio back
         statusDiv.innerText = "Microphone accessed. Setting up audio analysis...";
         console.log("Local stream obtained");
 
@@ -104,7 +104,7 @@ function cleanUpCall() {
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
-        localAudio.srcObject = null;
+        // REMOVED: localAudio.srcObject = null;
         console.log("Local stream stopped.");
     }
 
@@ -114,7 +114,7 @@ function cleanUpCall() {
 
     // Reset state variables
     currentRoom = null;
-    isMuted = false;
+    isMuted = false; // Ensure mute state is reset
 
     // Reset UI elements
     roomInput.disabled = false;
@@ -123,15 +123,24 @@ function cleanUpCall() {
     muteBtn.disabled = true;
     muteBtn.innerText = 'Mute';
     muteBtn.classList.remove('muted');
-    localUserStatusDiv.innerText = 'Mic Check';
-    localUserStatusDiv.className = 'user-status'; // Reset class
+    // REMOVED: localUserStatusDiv.innerText = 'Mic Check';
+    // REMOVED: localUserStatusDiv.className = 'user-status'; // Reset class
 }
 
 // --- Mute/Unmute ---
-function toggleMute() {
+// Modified to accept an optional forceState (true for mute, false for unmute)
+function toggleMute(forceState = null) {
     if (!localStream) return;
 
-    isMuted = !isMuted;
+    const targetMutedState = (forceState !== null) ? forceState : !isMuted;
+
+    if (targetMutedState === isMuted) {
+        console.log(`Already ${isMuted ? 'muted' : 'unmuted'}. No change.`);
+        return; // Already in the desired state
+    }
+
+    isMuted = targetMutedState;
+
     localStream.getAudioTracks().forEach(track => {
         track.enabled = !isMuted;
     });
@@ -140,7 +149,7 @@ function toggleMute() {
     muteBtn.innerText = isMuted ? 'Unmute' : 'Mute';
     muteBtn.classList.toggle('muted', isMuted);
 
-    // Update Local Participant UI
+    // Update Local Participant UI in the list
     updateLocalUserUI();
 
     console.log(isMuted ? "Microphone Muted" : "Microphone Unmuted");
@@ -149,9 +158,18 @@ function toggleMute() {
     // socket.emit('mute_status', { room: currentRoom, muted: isMuted });
 }
 
+// --- NEW: Function to request muting another peer ---
+function requestRemoteMute(targetSid) {
+    if (!currentRoom) return;
+    console.log(`Requesting mute for peer: ${targetSid}`);
+    socket.emit('remote_mute_request', { room: currentRoom, target_sid: targetSid });
+    // Note: We don't visually update the remote peer's button here.
+    // The mute action happens on their side. For visual confirmation,
+    // they would need to emit their mute status back.
+}
 
 // --- Speaking Detection (using Web Audio API) ---
-
+// (No changes needed in setupAudioAnalysis, analyseAudioLevel, startAudioAnalysis, stopAudioAnalysis)
 function setupAudioAnalysis() {
     if (!localStream || !localStream.getAudioTracks().length) {
         console.error("Cannot setup audio analysis: No local audio stream.");
@@ -249,10 +267,8 @@ function stopAudioAnalysis() {
      }
 }
 
-
 // --- Peer Connection Management ---
-
-// Creates and configures a peer connection for a given peer ID
+// (No changes needed in createPeerConnection, closePeerConnection)
 function createPeerConnection(peerId, isInitiator) {
     if (peerConnections[peerId]) {
         console.warn(`Peer connection for ${peerId} already exists.`);
@@ -264,7 +280,7 @@ function createPeerConnection(peerId, isInitiator) {
     peerConnections[peerId] = pc;
 
     // Add participant UI element (initially in 'connecting' state)
-    addParticipantUI(peerId, 'connecting');
+    addParticipantUI(peerId, 'connecting'); // MODIFIED: Includes Mute button
 
     // --- Event Handlers for the Peer Connection ---
 
@@ -337,8 +353,6 @@ function createPeerConnection(peerId, isInitiator) {
     return pc;
 }
 
-
-// Closes a specific peer connection and removes its UI
 function closePeerConnection(peerId) {
     const pc = peerConnections[peerId];
     if (pc) {
@@ -356,8 +370,7 @@ function closePeerConnection(peerId) {
 }
 
 // --- Signaling ---
-
-// Send signal data (offer, answer, candidate) to a specific peer via the server
+// (No changes needed in sendSignal, socket.on('signal'))
 function sendSignal(toId, signalPayload) {
      // console.log(`Sending signal to ${toId}:`, signalPayload.type || (signalPayload.candidate ? 'candidate' : 'desc')); // Debug
     socket.emit('signal', {
@@ -366,7 +379,6 @@ function sendSignal(toId, signalPayload) {
     });
 }
 
-// Handle signals received from the server (sent by other peers)
 socket.on('signal', async (data) => {
     const fromId = data.from_sid;
     const signal = data.signal;
@@ -426,8 +438,9 @@ socket.on('signal', async (data) => {
     }
 });
 
-// --- Server Events Handling ---
 
+// --- Server Events Handling ---
+// (No changes needed in existing_peers, peer_joined, peer_left, speaking_status)
 socket.on('existing_peers', (data) => {
     const existingPeerSids = data.sids;
     console.log(`Received existing peers: ${existingPeerSids.join(', ')}`);
@@ -443,20 +456,6 @@ socket.on('existing_peers', (data) => {
     existingPeerSids.forEach(peerId => {
          console.log(`Initiating connection to existing peer ${peerId}`);
          createPeerConnection(peerId, true); // Create connection (as initiator)
-         // Note: onnegotiationneeded should fire after adding tracks in createPeerConnection
-         // If offer generation seems unreliable, trigger explicitly:
-         /*
-         const pc = peerConnections[peerId];
-         if (pc && pc.signalingState === 'stable') {
-              pc.createOffer()
-                .then(offer => pc.setLocalDescription(offer))
-                .then(() => {
-                    console.log(`Explicitly sending offer to ${peerId}`);
-                    sendSignal(peerId, { desc: pc.localDescription });
-                })
-                .catch(error => console.error(`Explicit offer error for ${peerId}:`, error));
-         }
-         */
     });
     updateOverallStatus();
 });
@@ -467,7 +466,7 @@ socket.on('peer_joined', (data) => {
     // Don't create connection here. Wait for their offer signal.
     // The 'signal' handler will create the PeerConnection when the offer arrives.
     // Add placeholder UI - will be updated by signal handler/ICE state changes
-    addParticipantUI(newPeerId, 'new'); // Indicate they just joined
+    addParticipantUI(newPeerId, 'new'); // Indicate they just joined (includes Mute button)
     statusDiv.innerText = `Peer ${newPeerId.substring(0, 6)}... joined the room. Waiting for connection...`;
     updateOverallStatus();
 });
@@ -480,7 +479,6 @@ socket.on('peer_left', (data) => {
     updateOverallStatus();
 });
 
-// Received when another peer's speaking status changes
 socket.on('speaking_status', (data) => {
     const peerId = data.sid;
     const speaking = data.speaking;
@@ -488,7 +486,16 @@ socket.on('speaking_status', (data) => {
     updateParticipantUI(peerId, { speaking: speaking });
 });
 
+// --- NEW: Listener for remote mute request ---
+socket.on('force_mute', () => {
+    console.log("Received request to mute from another peer.");
+    // Force mute state to true
+    toggleMute(true);
+});
+
+
 // --- Socket.IO Connection Handling ---
+// (No changes needed in connect_error, disconnect)
 socket.on('connect_error', (error) => {
   console.error('Socket.IO connection error:', error);
   statusDiv.innerText = `Connection Error: ${error.message}. Server might be down.`;
@@ -519,28 +526,31 @@ socket.on('disconnect', (reason) => {
 
 // Adds or updates the local user's representation in the participant list
 function updateLocalUserUI() {
+    // This function now ONLY updates the entry in the participant list
     let localDiv = document.getElementById('participant_local');
     if (!localDiv && currentRoom) { // Only add if in a room
         localDiv = document.createElement('div');
         localDiv.id = 'participant_local';
-        localDiv.className = 'participant local'; // Add 'local' class for specific styling if needed
+        localDiv.className = 'participant local'; // Add 'local' class
         participantListDiv.prepend(localDiv); // Add local user to the top
     }
 
     if (localDiv) {
+        const localIdShort = socket.id ? socket.id.substring(0, 6) : 'connecting';
         localDiv.innerHTML = `
-            <span class="participant-info">You (${socket.id.substring(0, 6)}...)</span>
-            <span id="localUserStatus" class="participant-status ${isMuted ? 'muted' : ''}">
+            <span class="participant-info">You (${localIdShort}...)</span>
+            <span class="participant-status local-status ${isMuted ? 'muted' : ''}">
                 ${isMuted ? 'Muted' : 'Mic On'}
             </span>
+            <!-- No separate mute button for yourself here, use the main one -->
         `;
-        // Update speaking class
+        // Update speaking class based on local state
         localDiv.classList.toggle('speaking', isSpeaking && !isMuted);
     }
 }
 
 
-// Adds a UI element for a remote participant
+// MODIFIED: Adds a UI element for a remote participant WITH a mute button
 function addParticipantUI(peerId, initialState = 'connecting') {
     if (document.getElementById(`participant_${peerId}`)) return; // Already exists
 
@@ -548,16 +558,19 @@ function addParticipantUI(peerId, initialState = 'connecting') {
     participantDiv.id = `participant_${peerId}`;
     participantDiv.className = 'participant remote'; // Add 'remote' class
 
-    // Initial content
+    // Initial content including the Mute button
     participantDiv.innerHTML = `
         <span class="participant-info">Peer (${peerId.substring(0, 6)}...)</span>
         <span class="participant-status status-${initialState}">${initialState}</span>
+        <button class="mute-peer-btn" onclick="requestRemoteMute('${peerId}')">Mute Peer</button>
     `;
+    // Add specific CSS class 'mute-peer-btn' if needed for styling
 
     participantListDiv.appendChild(participantDiv);
 }
 
 // Updates specific parts of a participant's UI element
+// (No changes needed here, but could be extended to show remote mute status if signaled)
 function updateParticipantUI(peerId, updates) {
     const participantDiv = document.getElementById(`participant_${peerId}`);
     if (!participantDiv) return; // No UI element found
@@ -583,16 +596,20 @@ function updateParticipantUI(peerId, updates) {
         participantDiv.classList.toggle('speaking', updates.speaking);
     }
 
-    // Update Mute Status (if mute signaling is implemented later)
+    // Update Mute Status (Could be implemented if remote peers signal their mute state back)
     // if (updates.muted !== undefined) {
-    //     const statusSpan = participantDiv.querySelector('.participant-status');
-    //     statusSpan.classList.toggle('muted', updates.muted);
-    //     // Potentially add text like "(Muted)"
+    //     participantDiv.classList.toggle('muted-remote', updates.muted); // Add a class like 'muted-remote'
+    //     // Change the "Mute Peer" button text or appearance if needed
+    //     const muteButton = participantDiv.querySelector('.mute-peer-btn');
+    //     if (muteButton) {
+    //         muteButton.textContent = updates.muted ? 'Unmute Peer' : 'Mute Peer'; // Example
+    //     }
     // }
 }
 
 
 // Removes a participant's UI element
+// (No changes needed here)
 function removeParticipantUI(peerId) {
     const participantDiv = document.getElementById(`participant_${peerId}`);
     if (participantDiv) {
@@ -601,6 +618,7 @@ function removeParticipantUI(peerId) {
 }
 
 // Add a hidden audio element for a remote peer's stream
+// (No changes needed here)
 function addRemoteAudioElement(peerId, stream) {
     let audio = document.getElementById(`audio_${peerId}`);
     if (!audio) {
@@ -608,10 +626,9 @@ function addRemoteAudioElement(peerId, stream) {
         audio = document.createElement('audio');
         audio.id = `audio_${peerId}`;
         audio.autoplay = true;
-        // audio.controls = true; // Keep hidden, no controls needed by user directly
-        remoteAudiosDiv.appendChild(audio); // Add to the hidden div
+        // audio.controls = true; // Keep hidden
+        remoteAudiosDiv.appendChild(audio);
     }
-    // Check if stream is already attached
     if (audio.srcObject !== stream) {
          audio.srcObject = stream;
          console.log(`Attached stream from ${peerId} to hidden audio element.`);
@@ -619,18 +636,20 @@ function addRemoteAudioElement(peerId, stream) {
 }
 
 // Remove the hidden audio element for a disconnected peer
+// (No changes needed here)
 function removeRemoteAudioElement(peerId) {
     const audio = document.getElementById(`audio_${peerId}`);
     if (audio) {
         console.log(`Removing hidden audio element for ${peerId}`);
-        audio.srcObject = null; // Release stream resources
+        audio.srcObject = null;
         audio.remove();
     }
 }
 
-// Update the main status message based on connected peers (simple version)
+// Update the main status message based on connected peers
+// (No changes needed here)
 function updateOverallStatus() {
-    if (!currentRoom) return; // Don't update if not in a room
+    if (!currentRoom) return;
 
     const peerCount = Object.keys(peerConnections).length;
     const connectedPeers = Object.values(peerConnections)

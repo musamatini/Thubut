@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_very_secret_key!' # Use a better secret key
 # Use eventlet for async mode if needed, otherwise default (threading) might be simpler to start
 # socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
-socketio = SocketIO(app, cors_allowed_origins="*") # Default async mode (usually threading or gevent)
+socketio = SocketIO(app, cors_allowed_origins="*") # Default async mode
 
 # Keep track of users in rooms
 # rooms_data = { 'room_name': { 'socket_id1', 'socket_id2', ... } }
@@ -23,7 +23,7 @@ def index():
 @socketio.on('connect')
 def on_connect():
     print(f"Client connected: {request.sid}")
-    
+
 @socketio.on('speaking_status')
 def on_speaking_status(data):
     """ Broadcast whether a user started or stopped speaking """
@@ -37,21 +37,26 @@ def on_speaking_status(data):
             'sid': sender_sid,
             'speaking': is_speaking
         }, room=room, skip_sid=sender_sid) # Broadcast to others in the room
-        
+
 @socketio.on('disconnect')
 def on_disconnect():
     print(f"Client disconnected: {request.sid}")
     # Find which room the user was in and notify others
     disconnected_sid = request.sid
-    for room, sids in rooms_data.items():
+    # Using a copy of items for safe iteration if modifying dict
+    for room, sids in list(rooms_data.items()):
         if disconnected_sid in sids:
             sids.remove(disconnected_sid)
-            if not sids: # Remove room if empty
+            # Leave the socketio room explicitly
+            leave_room(room, sid=disconnected_sid)
+            print(f"Removed {disconnected_sid} from room {room} and SocketIO room")
+            if not sids: # Remove room from tracking if empty
                 del rooms_data[room]
+                print(f"Room {room} is now empty and removed.")
             else:
                  # Notify remaining users in the room
                 emit('peer_left', {'sid': disconnected_sid}, room=room)
-            print(f"Removed {disconnected_sid} from room {room}")
+                print(f"Notified peers in {room} about {disconnected_sid} leaving.")
             break # Assuming user is only in one room for this app
 
 
@@ -76,12 +81,12 @@ def on_join(data):
     rooms_data[room].add(joiner_sid)
 
     # Join the SocketIO room for broadcasting within the room
-    join_room(room)
+    join_room(room, sid=joiner_sid) # Explicitly join with SID
     print(f"{joiner_sid} joined SocketIO room {room}")
 
     # 1. Notify the joining user about existing peers
     print(f"Sending existing_peers {existing_peer_sids} to {joiner_sid}")
-    emit('existing_peers', {'sids': existing_peer_sids}, room=joiner_sid) # Send only to the joiner
+    emit('existing_peers', {'sids': existing_peer_sids}, to=joiner_sid) # Use 'to' instead of 'room' for direct message
 
     # 2. Notify existing peers about the new user
     if existing_peer_sids:
@@ -97,8 +102,10 @@ def on_leave(data):
     leaver_sid = request.sid
     if room and room in rooms_data and leaver_sid in rooms_data[room]:
         print(f"{leaver_sid} leaving room {room}")
-        leave_room(room)
+        # Leave the SocketIO room first
+        leave_room(room, sid=leaver_sid)
         rooms_data[room].remove(leaver_sid)
+        print(f"{leaver_sid} left SocketIO room {room}")
 
         if not rooms_data[room]: # Clean up empty room
             del rooms_data[room]
@@ -132,11 +139,37 @@ def on_signal(data):
         'signal': signal_payload
     }
 
-    # Emit the signal directly to the target peer
-    emit('signal', signal_data_to_send, room=target_sid)
-    # print(f"Relayed signal from {sender_sid} to {target_sid}") # Can be noisy, enable if needed
+    # Emit the signal directly to the target peer using 'to'
+    emit('signal', signal_data_to_send, to=target_sid)
+    # print(f"Relayed signal from {sender_sid} to {target_sid}") # Can be noisy
+
+
+# --- NEW: Handler for remote mute requests ---
+@socketio.on('remote_mute_request')
+def on_remote_mute_request(data):
+    """ Received when a user clicks 'Mute Peer' for someone else """
+    room = data.get('room')
+    target_sid = data.get('target_sid')
+    requester_sid = request.sid
+
+    if not room or not target_sid:
+        print(f"Invalid remote_mute_request received from {requester_sid}")
+        return
+
+    # Basic validation: Check if requester and target are actually in the room
+    if room in rooms_data and requester_sid in rooms_data[room] and target_sid in rooms_data[room]:
+        print(f"Relaying mute request from {requester_sid} to {target_sid} in room {room}")
+        # Send a specific 'force_mute' event ONLY to the target user
+        emit('force_mute', {}, to=target_sid)
+    else:
+        print(f"Mute request validation failed: Room '{room}' or SIDs not found.")
+
 
 if __name__ == '__main__':
     print("Starting server on 0.0.0.0:10000")
     # Consider using debug=False for production
-    socketio.run(app, host='0.0.0.0', port=10000, debug=True)
+    # Use use_reloader=False if debug=True and using eventlet/gevent to avoid issues
+    socketio.run(app, host='0.0.0.0', port=10000, debug=True, use_reloader=True)
+    # If using eventlet:
+    # import eventlet
+    # eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 10000)), app)
