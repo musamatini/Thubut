@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <div class="page-header">
+        <h1>Dashboard</h1>
+        <p>Welcome back, {{ current_user.fullname }}!</p>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card">
+            <h2>Your Role</h2>
+            <p>{{ current_user.role }}</p>
+            {# Add verification status for Listener later #}
+        </div>
+        <div class="card">
+            <h2>Memorization Progress</h2>
+            {# Add progress tracking display here later #}
+            <p>Progress tracking coming soon!</p>
+            <a href="#" class="btn btn-secondary">Update Progress</a>
+        </div>
+        <div class="card">
+            <h2>Schedule Session</h2>
+            <p>Find available Listeners and book a Tasmee' session.</p>
+            {# Add scheduling features later #}
+            <a href="{{ url_for('call') }}" class="btn btn-primary">Join/Start Call Room</a>
+             <p><small>(Use the "Join Call" link above for testing)</small></p>
+        </div>
+         <div class="card">
+            <h2>Your Info</h2>
+            <p><strong>Username:</strong> {{ current_user.username }}</p>
+            <p><strong>Email:</strong> {{ current_user.email }}</p>
+            <p><strong>Languages:</strong> {{ current_user.get_languages()|join(', ') }}</p>
+            {# Add link to profile edit page later #}
+        </div>
+    </div>
+
+{% endblock %}

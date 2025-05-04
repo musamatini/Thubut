@@ -1,0 +1,10 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <div class="page-header text-center">
+        <h1>Email Confirmed!</h1>
+        <p class="lead">Your email address has been successfully verified.</p>
+        <p>You are now logged in and can access all features.</p>
+        <p><a href="{{ url_for('dashboard') }}" class="btn btn-primary">Go to Dashboard</a></p>
+    </div>
+{% endblock %}

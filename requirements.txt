@@ -1,3 +1,12 @@
-Flask==3.0.0
-Flask-SocketIO==5.3.6
-eventlet==0.33.3
+Flask>=2.3,<3.0
+Flask-SocketIO>=5.3,<6.0
+Flask-SQLAlchemy>=3.0,<4.0
+Flask-WTF>=1.1,<2.0
+Flask-Login>=0.6,<0.7
+Flask-Mail>=0.9,<1.0
+python-dotenv>=1.0,<2.0
+email-validator>=2.0,<3.0
+itsdangerous>=2.1,<3.0
+eventlet>=0.33,<0.34 # Required for Flask-SocketIO production server
+Werkzeug>=2.3,<3.0 # Pinning for compatibility if needed
+gunicorn # For Render deployment

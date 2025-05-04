@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST" action="">
+        {{ form.hidden_tag() }} {# CSRF token #}
+        <fieldset class="form-group">
+            <legend class="border-bottom mb-4">Log In</legend>
+            <div class="form-field">
+                {{ form.email.label(class="form-label") }}
+                {% if form.email.errors %}
+                    {{ form.email(class="form-input form-input-invalid") }}
+                    <div class="invalid-feedback">
+                        {% for error in form.email.errors %}<span>{{ error }}</span>{% endfor %}
+                    </div>
+                {% else %}
+                    {{ form.email(class="form-input", placeholder="Enter your email") }}
+                {% endif %}
+            </div>
+            <div class="form-field">
+                {{ form.password.label(class="form-label") }}
+                {% if form.password.errors %}
+                    {{ form.password(class="form-input form-input-invalid") }}
+                    <div class="invalid-feedback">
+                        {% for error in form.password.errors %}<span>{{ error }}</span>{% endfor %}
+                    </div>
+                {% else %}
+                    {{ form.password(class="form-input", placeholder="Enter your password") }}
+                {% endif %}
+            </div>
+            <div class="form-check">
+                {{ form.remember(class="form-check-input") }}
+                {{ form.remember.label(class="form-check-label") }}
+            </div>
+        </fieldset>
+        <div class="form-group">
+            {{ form.submit(class="btn btn-primary") }}
+            {# Add forgot password link later #}
+            {# <a href="#" class="text-muted ml-2">Forgot Password?</a> #}
+        </div>
+    </form>
+    <div class="border-top pt-3">
+        <small class="text-muted">
+            Need An Account? <a class="ml-2" href="{{ url_for('signup') }}">Sign Up Now</a>
+        </small>
+    </div>
+</div>
+{% endblock %}

@@ -1,102 +1,388 @@
+/* --- Base & Variables --- */
+:root {
+    --bg-color: #1a1a1a; /* Very dark grey */
+    --bg-secondary-color: #2c2c2c; /* Slightly lighter dark grey */
+    --surface-color: #3d3d3d; /* Cards, inputs background */
+    --primary-color: #4CAF50; /* Green accent */
+    --primary-hover-color: #45a049;
+    --secondary-color: #00bcd4; /* Cyan accent */
+    --secondary-hover-color: #00acc1;
+    --danger-color: #f44336;
+    --warning-color: #ff9800;
+    --info-color: #2196F3;
+    --text-color: #e0e0e0; /* Light grey text */
+    --text-muted-color: #a0a0a0; /* Dimmer text */
+    --border-color: #555555;
+    --font-family: 'Tektur', sans-serif;
+    --navbar-height: 60px;
+}
+
+/* --- Reset & Base Styles --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    background: #f4f4f4;
-    padding: 20px;
+    font-family: var(--font-family);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    padding-top: var(--navbar-height); /* Prevent content overlap */
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-color);
+    margin-bottom: 0.8rem;
+    font-weight: 600; /* Adjust Tektur weight */
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; }
+
+p {
+    margin-bottom: 1rem;
+}
+
+a {
+    color: var(--secondary-color);
+    text-decoration: none;
+    transition: color 0.2s ease-in-out;
+}
+
+a:hover {
+    color: var(--secondary-hover-color);
+    text-decoration: underline;
+}
+
+/* --- Layout & Containers --- */
+.container {
+    width: 90%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+.content-section {
+    padding: 30px 0;
+    flex-grow: 1; /* Push footer down */
+}
+
+/* --- Navbar --- */
+.navbar {
+    background-color: var(--bg-secondary-color);
+    border-bottom: 1px solid var(--border-color);
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    height: var(--navbar-height);
+    display: flex;
     align-items: center;
 }
 
-h1, h2, h3 {
-    color: #333;
+.navbar .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.controls {
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.navbar-brand {
+    color: var(--text-color);
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+.navbar-brand:hover {
+    color: var(--primary-color);
+    text-decoration: none;
 }
 
-input {
-    padding: 10px;
-    margin: 5px;
-    font-size: 16px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+.navbar-links a {
+    color: var(--text-muted-color);
+    margin-left: 20px;
+    font-size: 1rem;
+    font-weight: 500;
+    text-decoration: none;
 }
 
-button {
-    padding: 10px 20px;
-    font-size: 16px;
-    margin: 5px;
+.navbar-links a:hover,
+.navbar-links a.active { /* Add 'active' class via JS/Templating if needed */
+    color: var(--text-color);
+    text-decoration: none;
+}
+
+/* --- Buttons --- */
+.btn {
+    display: inline-block;
+    padding: 10px 25px;
+    font-size: 1rem;
+    font-family: var(--font-family);
+    font-weight: 600;
     cursor: pointer;
     border: none;
-    border-radius: 4px;
-    background-color: #5cb85c;
-    color: white;
-    transition: background-color 0.3s ease;
+    border-radius: 5px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    text-align: center;
+    text-decoration: none;
+    margin: 5px;
 }
-
-button:hover:not(:disabled) {
-    background-color: #4cae4c;
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
-
-button:disabled {
-    background-color: #cccccc;
+.btn:disabled {
+    background-color: #555;
+    color: var(--text-muted-color);
     cursor: not-allowed;
 }
 
-#leaveBtn {
-    background-color: #d9534f;
-}
-#leaveBtn:hover:not(:disabled) {
-    background-color: #c9302c;
+.btn-primary { background-color: var(--primary-color); color: #fff; }
+.btn-primary:hover:not(:disabled) { background-color: var(--primary-hover-color); }
+
+.btn-secondary { background-color: var(--secondary-color); color: #fff; }
+.btn-secondary:hover:not(:disabled) { background-color: var(--secondary-hover-color); }
+
+.btn-success { background-color: var(--primary-color); color: #fff; }
+.btn-success:hover:not(:disabled) { background-color: var(--primary-hover-color); }
+
+.btn-danger { background-color: var(--danger-color); color: #fff; }
+.btn-danger:hover:not(:disabled) { background-color: #d32f2f; } /* Darker red */
+
+.btn-warning { background-color: var(--warning-color); color: #000; } /* Black text for better contrast */
+.btn-warning:hover:not(:disabled) { background-color: #f57c00; } /* Darker orange */
+.btn-warning.muted { background-color: #777; color: #fff; } /* Muted state */
+
+.btn-info { background-color: var(--info-color); color: #fff; }
+.btn-info:hover:not(:disabled) { background-color: #1976D2; } /* Darker blue */
+
+.btn-lg { padding: 12px 30px; font-size: 1.1rem; }
+
+/* --- Forms --- */
+.form-container {
+    background-color: var(--bg-secondary-color);
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 500px;
+    margin: 20px auto;
+    border: 1px solid var(--border-color);
 }
 
-#muteBtn {
-    background-color: #f0ad4e;
+.form-group {
+    margin-bottom: 1.5rem;
 }
-#muteBtn:hover:not(:disabled) {
-    background-color: #ec971f;
+.form-field {
+    margin-bottom: 1rem;
 }
-#muteBtn.muted {
-    background-color: #777;
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-muted-color);
+    font-weight: 500;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+    display: block;
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 1rem;
+    font-family: var(--font-family);
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    transition: border-color 0.2s ease;
+}
+.form-input::placeholder {
+    color: var(--text-muted-color);
+    opacity: 0.7;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+.form-input-invalid {
+    border-color: var(--danger-color);
+}
+.invalid-feedback {
+    color: var(--danger-color);
+    font-size: 0.875em;
+    margin-top: 0.25rem;
+}
+.invalid-feedback span { display: block; }
+
+.form-check {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+.form-check-input {
+    width: auto;
+    margin-right: 0.5rem;
+    accent-color: var(--primary-color); /* Style checkbox */
+}
+.form-check-label {
+    margin-bottom: 0;
+    color: var(--text-color);
+}
+
+/* Multi Checkbox Styling */
+.multi-checkbox .checkbox-group {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    max-height: 150px; /* Allow scrolling if many options */
+    overflow-y: auto;
+}
+.multi-checkbox label {
+    display: block; /* Each checkbox on its own line */
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+.multi-checkbox input[type="checkbox"] {
+    margin-right: 8px;
+    accent-color: var(--primary-color);
 }
 
 
-#status {
+/* --- Flash Messages --- */
+.flash-messages {
+    margin-bottom: 20px;
+}
+.alert {
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #fff;
+}
+.alert-success { background-color: var(--primary-color); border-color: var(--primary-hover-color); }
+.alert-danger { background-color: var(--danger-color); border-color: #d32f2f; }
+.alert-warning { background-color: var(--warning-color); border-color: #f57c00; color: #000;} /* Black text for contrast */
+.alert-info { background-color: var(--info-color); border-color: #1976D2; }
+
+/* --- Landing Page Specific --- */
+.landing-hero {
+    text-align: center;
+    padding: 60px 0;
+    background-color: var(--bg-secondary-color);
+    border-radius: 8px;
+    margin-bottom: 40px;
+}
+.landing-hero h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+.landing-hero .lead {
+    font-size: 1.3rem;
+    color: var(--text-muted-color);
+    margin-bottom: 2rem;
+}
+.landing-cta .btn {
+    margin: 0 10px;
+}
+
+.features-section {
+    padding: 40px 0;
+}
+.features-section h2 {
+    text-align: center;
+    margin-bottom: 40px;
+}
+.feature {
+    background-color: var(--bg-secondary-color);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--primary-color);
+}
+.feature h3 {
+    margin-bottom: 10px;
+    color: var(--secondary-color);
+}
+.feature .icon {
+    margin-right: 10px;
+    font-size: 1.2em;
+}
+
+/* --- Dashboard --- */
+.page-header {
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+}
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+.card {
+    background-color: var(--bg-secondary-color);
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+.card h2 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--secondary-color);
+    font-size: 1.4rem;
+}
+
+/* --- Call Page Specific (Based on original style.css) --- */
+.call-interface {
+     /* Can add specific layout if needed */
+}
+.call-controls {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--bg-secondary-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+.call-controls input {
+    flex-grow: 1; /* Allow input to take space */
+    min-width: 150px;
+}
+
+.call-status {
     font-weight: bold;
     margin-top: 0;
     margin-bottom: 20px;
-    color: #555;
-    min-height: 1.2em; /* Prevent layout shifts */
-}
-
-.audio-check {
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    width: 80%;
-    max-width: 500px;
-}
-
-.audio-check audio {
-    width: 90%;
-    margin-top: 5px;
+    color: var(--text-muted-color);
+    min-height: 1.2em;
 }
 
 .participants {
-    width: 80%;
-    max-width: 500px;
     margin-top: 20px;
-    background: #fff;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px; /* Inherits .card styles */
+}
+.participants h2 {
+    margin-bottom: 15px;
 }
 
 #participantList {
@@ -105,14 +391,21 @@ button:disabled {
 }
 
 .participant {
-    border: 1px solid #eee;
-    padding: 10px;
-    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+    padding: 12px 15px;
+    margin-bottom: 10px;
     border-radius: 4px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: border-color 0.3s ease;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+    background-color: var(--surface-color);
+}
+.participant.local {
+    border-left: 3px solid var(--info-color);
+}
+.participant.remote {
+     border-left: 3px solid var(--secondary-color);
 }
 
 .participant-info {
@@ -121,28 +414,73 @@ button:disabled {
 
 .participant-status {
     font-size: 0.9em;
-    color: #666;
+    color: #000; /* Black text for contrast on status badges */
     margin-left: 10px;
-    padding: 3px 6px;
+    padding: 4px 8px;
     border-radius: 3px;
+    text-align: center;
+    min-width: 80px;
 }
 
 /* Connection States */
-.status-connecting { background-color: #f0ad4e; color: white;}
-.status-connected { background-color: #5cb85c; color: white;}
-.status-failed { background-color: #d9534f; color: white;}
-.status-disconnected { background-color: #777; color: white;}
-.status-closed { background-color: #777; color: white;}
-
+.status-connecting, .status-new { background-color: var(--warning-color); }
+.status-connected, .status-completed { background-color: var(--primary-color); color: #fff; }
+.status-failed { background-color: var(--danger-color); color: #fff;}
+.status-disconnected { background-color: #777; color: #fff;}
+.status-closed { background-color: #555; color: #fff;}
 
 /* Speaking Indicator */
 .participant.speaking {
-    border-left: 5px solid #5bc0de; /* Highlight border when speaking */
+    border-color: var(--primary-color); /* Highlight border when speaking */
+    background-color: #4a4a4a; /* Slightly lighter bg when speaking */
 }
 
 /* Mute Indicator */
-.participant-status.muted {
-    text-decoration: line-through;
-     background-color: #aaa;
-     color: white;
+.participant-status.local-status {
+    background-color: var(--primary-color); color: #fff; /* Default state */
 }
+.participant-status.local-status.muted {
+    background-color: #777;
+    color: #fff;
+    text-decoration: line-through;
+}
+.participant .mute-peer-btn { /* Style the mute button for remote peers */
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    background-color: var(--warning-color);
+    color: #000;
+    margin-left: 10px;
+}
+.participant .mute-peer-btn:hover:not(:disabled) {
+     background-color: #f57c00;
+}
+
+
+/* --- Footer --- */
+.footer {
+    background-color: var(--bg-secondary-color);
+    color: var(--text-muted-color);
+    padding: 20px 0;
+    margin-top: 40px; /* Ensure space above footer */
+    text-align: center;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+/* --- Error Pages --- */
+.error-page {
+    text-align: center;
+    padding: 50px 0;
+}
+.error-page h1 {
+    color: var(--danger-color);
+    margin-bottom: 20px;
+}
+
+/* --- Utility Classes --- */
+.text-center { text-align: center; }
+.mb-4 { margin-bottom: 1.5rem !important; }
+.mt-4 { margin-top: 1.5rem !important; }
+.pt-3 { padding-top: 1rem !important; }
+.ml-2 { margin-left: 0.5rem !important; }
+.text-muted { color: var(--text-muted-color) !important; }

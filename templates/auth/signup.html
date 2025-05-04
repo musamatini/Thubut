@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST" action="">
+        {{ form.hidden_tag() }} {# CSRF token #}
+        <fieldset class="form-group">
+            <legend class="border-bottom mb-4">Create Account</legend>
+
+            <div class="form-field">
+                {{ form.fullname.label(class="form-label") }}
+                {{ form.fullname(class="form-input", size=32, placeholder="Your full name") }}
+                {% if form.fullname.errors %}<div class="invalid-feedback">{% for error in form.fullname.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="form-field">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-input", size=32, placeholder="Choose a username") }}
+                {% if form.username.errors %}<div class="invalid-feedback">{% for error in form.username.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="form-field">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-input", size=32, placeholder="your.email@example.com") }}
+                {% if form.email.errors %}<div class="invalid-feedback">{% for error in form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+             <div class="form-field">
+                {{ form.age.label(class="form-label") }}
+                {{ form.age(class="form-input", placeholder="Enter your age (Optional)") }}
+                {% if form.age.errors %}<div class="invalid-feedback">{% for error in form.age.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+             <div class="form-field">
+                {{ form.phone_number.label(class="form-label") }}
+                {{ form.phone_number(class="form-input", placeholder="+1234567890 (Optional)") }}
+                {% if form.phone_number.errors %}<div class="invalid-feedback">{% for error in form.phone_number.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="form-field multi-checkbox">
+                {{ form.languages.label(class="form-label") }}
+                <div class="checkbox-group">
+                    {{ form.languages() }} {# Renders checkboxes #}
+                </div>
+                {% if form.languages.errors %}<div class="invalid-feedback">{% for error in form.languages.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="form-field">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-input", placeholder="Minimum 8 characters") }}
+                {% if form.password.errors %}<div class="invalid-feedback">{% for error in form.password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="form-field">
+                {{ form.confirm_password.label(class="form-label") }}
+                {{ form.confirm_password(class="form-input", placeholder="Confirm your password") }}
+                {% if form.confirm_password.errors %}<div class="invalid-feedback">{% for error in form.confirm_password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+            </div>
+
+        </fieldset>
+        <div class="form-group">
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+    </form>
+    <div class="border-top pt-3">
+        <small class="text-muted">
+            Already Have An Account? <a class="ml-2" href="{{ url_for('login') }}">Log In</a>
+        </small>
+    </div>
+</div>
+{% endblock %}

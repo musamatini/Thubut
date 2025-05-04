@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="landing-hero">
+    <h1>Welcome to Thubut</h1>
+    <p class="lead">Your platform for guided Qur'an memorization and community support.</p>
+    <p>Connect with Listeners for live recitation sessions, track your progress, and achieve your memorization goals.</p>
+    <div class="landing-cta">
+        <a href="{{ url_for('signup') }}" class="btn btn-primary btn-lg">Get Started</a>
+        <a href="{{ url_for('login') }}" class="btn btn-secondary btn-lg">Login</a>
+    </div>
+</div>
+
+<div class="features-section">
+    <h2>How it Works</h2>
+    <div class="feature">
+        <h3><span class="icon">👥</span> User Roles</h3>
+        <p>Register as a <strong>Memorizer</strong> to track your Hifz journey or apply to become a verified <strong>Listener</strong> to help others.</p>
+    </div>
+    <div class="feature">
+        <h3><span class="icon">📊</span> Progress Tracking</h3>
+        <p>Set goals and monitor your memorization progress by Juz' and overall percentage.</p>
+    </div>
+    <div class="feature">
+        <h3><span class="icon">🎧</span> Live Tasmee'</h3>
+        <p>Schedule and conduct live voice sessions with Listeners for real-time feedback and correction.</p>
+    </div>
+    <div class="feature">
+         <h3><span class="icon">❗</span> Error Alerts</h3>
+         <p>Listeners can instantly signal mistakes during recitation, helping Memorizers correct themselves immediately.</p>
+    </div>
+</div>
+{% endblock %}

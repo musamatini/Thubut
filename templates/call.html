@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+
+{% block head_extra %}
+    {# Specific styles for call page if needed, otherwise reuse main style.css #}
+{% endblock %}
+
+{% block content %}
+    <div class="call-interface">
+        <h1 class="page-header">Voice Call Session</h1>
+
+        <div class="controls call-controls">
+            <input id="room" placeholder="Enter Room ID" class="form-input">
+            <button id="joinBtn" onclick="joinCall()" class="btn btn-success">Join Call</button>
+            <button id="leaveBtn" onclick="leaveCall()" class="btn btn-danger" disabled>Leave Call</button>
+            <button id="muteBtn" onclick="toggleMute()" class="btn btn-warning" disabled>Mute</button>
+        </div>
+
+        <p id="status" class="call-status">Enter a Room ID and click Join.</p>
+
+        <div class="participants card">
+            <h2>Participants</h2>
+            <div id="participantList">
+                {# Participant elements will be added here by JS #}
+            </div>
+        </div>
+
+        {# Hidden container for remote audio streams #}
+        <div id="remoteAudios" style="display: none;"></div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {# Load the existing WebRTC JavaScript file #}
+    <script src="{{ url_for('static', filename='js/webrtc.js') }}"></script>
+{% endblock %}
