@@ -1,7 +1,7 @@
 from flask_mail import Message
 from flask import current_app, url_for
 from threading import Thread
-from extensions import mail # Assuming mail is initialized in extensions.py or app.py
+from app import mail 
 
 def send_async_email(app, msg):
     with app.app_context():
