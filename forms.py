@@ -3,7 +3,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, IntegerField, SelectMultipleField, BooleanField, widgets
 from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError, NumberRange, Optional
 from models import User
-import pycountry # <-- Import the library
+import pycountry
 
 # --- Generate Language Choices using pycountry ---
 try:

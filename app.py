@@ -1,13 +1,11 @@
 # app.py
 import os
 import eventlet
-eventlet.monkey_patch() # <-- STEP 1: Absolutely first
+eventlet.monkey_patch()
 
-# --- Standard Libraries ---
 import datetime
 import logging
 
-# --- Flask and Extension CLASS Imports ---
 from flask import Flask, render_template, request, redirect, url_for, flash, session, current_app # Added current_app for potential use
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
@@ -31,15 +29,6 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_default_fallback_secret_key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///../instance/app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# --- REMOVED Flask-Mail SMTP Configuration ---
-# app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
-# app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-# app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
-# app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'False').lower() == 'true'
-# app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-# app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-# app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 
 # --- ADDED Mailgun API Configuration ---
 # Ensure these are set in your Render environment variables / .env file
