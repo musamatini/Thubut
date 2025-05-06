@@ -1,20 +1,24 @@
 # app.py
 import os
 import eventlet
-eventlet.monkey_patch()
-import datetime, logging
+eventlet.monkey_patch() # <-- STEP 1: Absolutely first
 
+# --- Standard Libraries ---
+import datetime
+import logging
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+# --- Flask and Extension CLASS Imports ---
+from flask import Flask, render_template, request, redirect, url_for, flash, session, current_app # Added current_app for potential use
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
-# REMOVED: from flask_mail import Mail # No longer using Flask-Mail
 from flask_wtf.csrf import CSRFProtect
+
+# --- Utility/Other Libraries ---
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# --- Load Environment Variables ---
+load_dotenv() 
 
 # Local imports
 from models import db, User
