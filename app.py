@@ -1,8 +1,7 @@
 # app.py
-import os
 import eventlet
 eventlet.monkey_patch()
-
+import os
 import datetime
 import logging
 import phonenumbers # For normalizing phone number before saving
