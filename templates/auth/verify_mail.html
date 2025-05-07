@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="form-container text-center">
+    <h2>Verify Your Email Address</h2>
+    {% if email %}
+    <p class="lead">A verification code has been sent to <strong>{{ email }}</strong>.</p>
+    <p>Please enter the 6-digit code below.</p>
+    {% else %}
+    <p class="lead">Please enter the 6-digit verification code sent to your email address.</p>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('verify_email') }}">
+        {{ form.hidden_tag() }}
+        <div class="form-field my-3">
+            {{ form.code.label(class="form-label visually-hidden") }}
+            {{ form.code(class="form-input text-center", size=6, placeholder="_ _ _ _ _ _", autofocus=True, style="font-size: 1.5rem; letter-spacing: 0.5em; max-width: 200px; margin: auto;") }}
+            {% if form.code.errors %}<div class="invalid-feedback d-block">{% for error in form.code.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+        </div>
+        <div class="form-group my-3">
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+    </form>
+    <hr>
+    <p>Didn't receive the code?</p>
+    <form method="POST" action="{{ url_for('resend_verification_email') }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> {# Add CSRF if globally enabled for POST #}
+        {% if email %}<input type="hidden" name="email" value="{{ email }}">{% endif %}
+        <button type="submit" class="btn btn-link">Resend Code</button>
+    </form>
+    <p><a href="{{ url_for('signup') }}" class="btn btn-secondary mt-2">Back to Signup</a></p>
+</div>
+{% endblock %}

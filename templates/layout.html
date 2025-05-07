@@ -7,7 +7,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400..900&display=swap" rel="stylesheet">
+
+    {# Your existing CSS #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    {# CSS for intl-tel-input #}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.13/css/intlTelInput.css"/>
+    {# CSS for Tom Select (using Bootstrap 5 theme as it's common, change if needed) #}
+    {# If you're not using Bootstrap, tom-select.default.css might be better:
+       https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.default.css #}
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.css" rel="stylesheet">
+
+    {# Block for extra head content from child templates (e.g., page-specific styles) #}
     {% block head_extra %}{% endblock %}
 </head>
 <body>
@@ -18,7 +29,8 @@
                 {% if current_user.is_authenticated %}
                     <a href="{{ url_for('dashboard') }}">Dashboard</a>
                     <a href="{{ url_for('call') }}">Join Call</a>
-                    <a href="#">Profile</a> {# Add profile route later #}
+                    {# Consider a profile link e.g., url_for('profile') #}
+                    <a href="#">Profile</a>
                     <a href="{{ url_for('logout') }}">Logout</a>
                 {% else %}
                     <a href="{{ url_for('login') }}">Login</a>
@@ -33,11 +45,19 @@
             {% if messages %}
                 <div class="flash-messages">
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
+                    {# Basic alert styling, you might have specific classes in style.css #}
+                    <div class="alert alert-{{ category }}" role="alert" style="padding: 10px; margin-bottom: 15px; border: 1px solid transparent; border-radius: 4px;">
                         {{ message }}
                     </div>
                 {% endfor %}
                 </div>
+                {# Basic styling for alert types - ideally these are in your style.css #}
+                <style>
+                    .alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+                    .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+                    .alert-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
+                    .alert-info { color: #0c5460; background-color: #d1ecf1; border-color: #bee5eb; }
+                </style>
             {% endif %}
         {% endwith %}
 
@@ -46,16 +66,25 @@
 
     <footer class="footer">
         <div class="container">
-            <p>© {{ now.year }} Thubut. Optional Donation Link Here.</p>
+            <p>© {{ now.year }} Thubut. All Rights Reserved.
+               {# Example: <a href="/donate">Support Us</a> #}
+            </p>
         </div>
     </footer>
 
-    {# Global JS, SocketIO client #}
+    {# Global JS libraries #}
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    {# Custom JS file - keep webrtc.js separate for call page #}
+
+    {# JS for intl-tel-input (utils.js is loaded by the library itself when needed) #}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.13/js/intlTelInput.min.js"></script>
+    {# JS for Tom Select #}
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+
+    {# Your custom global JS, if any (e.g., for navbar toggles, general site interactions) #}
     {# <script src="{{ url_for('static', filename='js/main.js') }}"></script> #}
 
-    {# Page specific JS #}
+    {# Block for page-specific JavaScript from child templates #}
+    {# This is where the initialization code for intl-tel-input and Tom Select on signup.html will go #}
     {% block scripts %}{% endblock %}
 </body>
 </html>

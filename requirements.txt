@@ -11,3 +11,5 @@ Werkzeug
 gunicorn
 requests
 pycountry
+phonenumbers
+Flask-Migrate

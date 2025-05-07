@@ -1,54 +1,78 @@
 {% extends "layout.html" %}
 
+{% block head_extra %} {# Add a block for extra head content if your layout.html supports it #}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.13/css/intlTelInput.css"/>
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.css" rel="stylesheet">
+<style>
+    .form-container { max-width: 600px; margin: auto; padding: 20px; }
+    .form-field { margin-bottom: 1.5rem; }
+    .form-label { display: block; margin-bottom: .5rem; font-weight: bold; }
+    .form-input, .form-control, .form-select { /* Add .form-control for Bootstrap styling if used */
+        width: 100%;
+        padding: .5rem;
+        border: 1px solid #ced4da;
+        border-radius: .25rem;
+    }
+    .invalid-feedback span { display: block; color: red; font-size: 0.875em; }
+    .iti { width: 100%; } /* Ensure intl-tel-input takes full width */
+    .ts-control { /* Tom Select general styling hook */
+        padding: .5rem !important; /* Tom Select might need !important for padding */
+    }
+    /* Adjust if you are using Bootstrap, as it has its own styling for .form-control */
+</style>
+{% endblock %}
+
+
 {% block content %}
 <div class="form-container">
-    <form method="POST" action="">
+    <form method="POST" action="" id="signupForm"> {# Added id to form for JS #}
         {{ form.hidden_tag() }} {# CSRF token #}
         <fieldset class="form-group">
             <legend class="border-bottom mb-4">Create Account</legend>
 
             <div class="form-field">
                 {{ form.fullname.label(class="form-label") }}
-                {{ form.fullname(class="form-input", size=32, placeholder="Your full name") }}
+                {{ form.fullname(class="form-input", placeholder="Your full name") }}
                 {% if form.fullname.errors %}<div class="invalid-feedback">{% for error in form.fullname.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
             </div>
 
             <div class="form-field">
                 {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-input", size=32, placeholder="Choose a username") }}
+                {{ form.username(class="form-input", placeholder="Choose a username") }}
                 {% if form.username.errors %}<div class="invalid-feedback">{% for error in form.username.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
             </div>
 
             <div class="form-field">
                 {{ form.email.label(class="form-label") }}
-                {{ form.email(class="form-input", size=32, placeholder="your.email@example.com") }}
+                {{ form.email(class="form-input", placeholder="your.email@example.com") }}
                 {% if form.email.errors %}<div class="invalid-feedback">{% for error in form.email.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
             </div>
 
              <div class="form-field">
-                {{ form.age.label(class="form-label") }}
-                {{ form.age(class="form-input", placeholder="Enter your age (Optional)") }}
-                {% if form.age.errors %}<div class="invalid-feedback">{% for error in form.age.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                {{ form.birthday.label(class="form-label") }}
+                {# Use type="date" for better browser support for date pickers #}
+                {{ form.birthday(class="form-input", type="date") }}
+                {% if form.birthday.errors %}<div class="invalid-feedback">{% for error in form.birthday.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
             </div>
 
              <div class="form-field">
                 {{ form.phone_number.label(class="form-label") }}
-                {{ form.phone_number(class="form-input", placeholder="+1234567890 (Optional)") }}
+                {# Ensure id="phone_number" for intl-tel-input #}
+                {{ form.phone_number(class="form-input", id="phone_number_input", placeholder="e.g., 201-555-0123") }}
                 {% if form.phone_number.errors %}<div class="invalid-feedback">{% for error in form.phone_number.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
             </div>
 
-            <div class="form-field multi-checkbox">
+            <div class="form-field">
                 {{ form.languages.label(class="form-label") }}
-                <div class="checkbox-group">
-                    {{ form.languages() }} {# Renders checkboxes #}
-                </div>
+                 {# Ensure id="languages" for Tom Select (WTForms usually assigns field name as id) #}
+                {{ form.languages(class="form-select", id="languages_select") }}
                 {% if form.languages.errors %}<div class="invalid-feedback">{% for error in form.languages.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
             </div>
 
             <div class="form-field">
                 {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-input", placeholder="Minimum 8 characters") }}
-                {% if form.password.errors %}<div class="invalid-feedback">{% for error in form.password.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+                {{ form.password(class="form-input", placeholder="Min. 8 chars, upper, lower, num, symbol") }}
+                {% if form.password.errors %}<div class="invalid-feedback">{% for error_list in form.password.errors %}{% for error in error_list if error_list is iterable and error_list is not string else [error_list] %}<span>{{ error }}</span>{% endfor %}{% endfor %}</div>{% endif %}
             </div>
 
             <div class="form-field">
@@ -58,14 +82,63 @@
             </div>
 
         </fieldset>
-        <div class="form-group">
-            {{ form.submit(class="btn btn-primary") }}
+        <div class="form-group mt-3">
+            {{ form.submit(class="btn btn-primary w-100") }}
         </div>
     </form>
-    <div class="border-top pt-3">
+    <div class="border-top pt-3 mt-3 text-center">
         <small class="text-muted">
             Already Have An Account? <a class="ml-2" href="{{ url_for('login') }}">Log In</a>
         </small>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %} {# Add a block for scripts at the end of body if your layout.html supports it #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.13/js/intlTelInput.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // For Phone Number
+    var phoneInput = document.querySelector("#phone_number_input");
+    var itiInstance; // To store the intlTelInput instance
+
+    if (phoneInput) {
+        itiInstance = window.intlTelInput(phoneInput, {
+            utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.13/js/utils.js",
+            preferredCountries: ['us', 'gb', 'de', 'fr', 'sa', 'ae', 'pk', 'in', 'eg'],
+            // separateDialCode: true, // if true, you get dial code separately. If false, it's part of number.
+            nationalMode: false, // Set to false to get E.164 format
+            initialCountry: "auto",
+            geoIpLookup: function(callback) {
+              fetch("https://ipapi.co/json")
+                .then(function(res) { return res.json(); })
+                .then(function(data) { callback(data.country_code); })
+                .catch(function() { callback("us"); }); // Fallback country
+            }
+        });
+
+        // Update the hidden or actual phone_number field on form submit or change
+        var signupForm = document.querySelector("#signupForm");
+        if (signupForm) {
+            signupForm.addEventListener('submit', function() {
+                if (itiInstance) {
+                    phoneInput.value = itiInstance.getNumber(); // This gets the number in E.164 format
+                }
+            });
+        }
+    }
+
+    // For Languages
+    var languageSelect = document.querySelector("#languages_select");
+    if (languageSelect) {
+        new TomSelect(languageSelect,{
+            create: false,
+            sortField: { field: "text", direction: "asc" },
+            plugins: ['remove_button'],
+            placeholder: "Select fluent languages..."
+        });
+    }
+});
+</script>
 {% endblock %}

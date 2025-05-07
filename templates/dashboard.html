@@ -6,32 +6,87 @@
         <p>Welcome back, {{ current_user.fullname }}!</p>
     </div>
 
+    {% if not current_user.email_confirmed %}
+    <div class="alert alert-warning" role="alert">
+        Your email address is not yet confirmed. Please <a href="{{ url_for('verify_email') }}">verify your email</a> to access all features.
+        <form method="POST" action="{{ url_for('resend_verification_email') }}" style="display:inline-block; margin-left: 10px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="email" value="{{ current_user.email }}">
+            <button type="submit" class="btn btn-sm btn-outline-warning">Resend Code</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {# Add similar for phone if you make it a prominent verification step #}
+    {# {% if current_user.phone_number and not current_user.phone_confirmed %}
+    <div class="alert alert-warning" role="alert">
+        Your phone number ({{ current_user.phone_number }}) is not yet confirmed.
+        <a href="{{ url_for('verify_phone') }}">Verify your phone</a>.
+        <form method="POST" action="{{ url_for('resend_phone_code') }}" style="display:inline-block; margin-left: 10px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-outline-warning">Resend SMS Code</button>
+        </form>
+    </div>
+    {% endif %} #}
+
+
     <div class="dashboard-grid">
         <div class="card">
-            <h2>Your Role</h2>
-            <p>{{ current_user.role }}</p>
-            {# Add verification status for Listener later #}
-        </div>
-        <div class="card">
-            <h2>Memorization Progress</h2>
-            {# Add progress tracking display here later #}
-            <p>Progress tracking coming soon!</p>
-            <a href="#" class="btn btn-secondary">Update Progress</a>
-        </div>
-        <div class="card">
-            <h2>Schedule Session</h2>
-            <p>Find available Listeners and book a Tasmee' session.</p>
-            {# Add scheduling features later #}
-            <a href="{{ url_for('call') }}" class="btn btn-primary">Join/Start Call Room</a>
-             <p><small>(Use the "Join Call" link above for testing)</small></p>
-        </div>
-         <div class="card">
             <h2>Your Info</h2>
             <p><strong>Username:</strong> {{ current_user.username }}</p>
-            <p><strong>Email:</strong> {{ current_user.email }}</p>
+            <p><strong>Email:</strong> {{ current_user.email }}
+                {% if current_user.email_confirmed %}
+                    <span class="badge bg-success">Verified</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">Not Verified</span>
+                {% endif %}
+            </p>
+            {% if current_user.birthday %}
+            <p><strong>Birthday:</strong> {{ current_user.birthday.strftime('%B %d, %Y') }}</p>
+            {% endif %}
+            {% if current_user.phone_number %}
+            <p><strong>Phone:</strong> {{ current_user.phone_number }}
+                {% if current_user.phone_confirmed %}
+                    <span class="badge bg-success">Verified</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">Not Verified</span>
+                     (<a href="{{ url_for('verify_phone') }}">Verify Now</a>)
+                {% endif %}
+            </p>
+            {% endif %}
             <p><strong>Languages:</strong> {{ current_user.get_languages()|join(', ') }}</p>
-            {# Add link to profile edit page later #}
+            <p><strong>Role:</strong> {{ current_user.role }}</p>
+            {# Add link to profile edit page later: <a href="#" class="btn btn-secondary mt-2">Edit Profile</a> #}
+        </div>
+
+        <div class="card">
+            <h2>Memorization Progress</h2>
+            <p>Progress tracking coming soon!</p>
+            {# <a href="#" class="btn btn-secondary">Update Progress</a> #}
+        </div>
+
+        <div class="card">
+            <h2>Schedule Session / Call</h2>
+            <p>Find available Listeners and book a Tasmee' session, or start an instant call.</p>
+            <a href="{{ url_for('call') }}" class="btn btn-primary">Join/Start Call Room</a>
         </div>
     </div>
+
+    <style>
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .card h2 { margin-top: 0; }
+        .badge { font-size: 0.8em; padding: .3em .6em;}
+    </style>
 
 {% endblock %}
