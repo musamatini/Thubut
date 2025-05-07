@@ -64,17 +64,22 @@ class User(UserMixin, db.Model):
             return True
         return False
 
-    def set_phone_verification_code(self):
-        self.phone_verification_code = self.generate_verification_code()
-        self.phone_verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-        return self.phone_verification_code
+    def set_phone_verification_code(self, code_length=6): # Added code_length consistency
+        # This method can still be used to *generate* a code if needed elsewhere,
+        # or to set the expiry. The actual code value for phone might be
+        # overwritten by an external SMS API.
+        generated_code = "".join(random.choices(string.digits, k=code_length))
+        self.phone_verification_code = generated_code # Set our generated one initially
+        self.phone_verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10) # Shorter expiry for SMS codes
+        return generated_code # Return it, though it might be unused if API overwrites
 
     def verify_phone_code(self, code):
+        # This verification logic remains the same, it checks against whatever is in self.phone_verification_code
         if self.phone_verification_code == code and \
            self.phone_verification_code_expires_at and \
            self.phone_verification_code_expires_at > datetime.datetime.utcnow():
-            self.phone_confirmed = True
-            self.phone_verification_code = None
+            # self.phone_confirmed = True # Confirmation should happen in the route after successful verification
+            self.phone_verification_code = None # Clear code after use
             self.phone_verification_code_expires_at = None
             return True
         return False

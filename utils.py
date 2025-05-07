@@ -2,7 +2,7 @@
 import os
 import requests
 from threading import Thread
-from flask import current_app, url_for
+from flask import current_app
 from requests.auth import HTTPBasicAuth
 import logging
 # Removed Mail import as it's no longer used
@@ -114,29 +114,6 @@ The {app_name} Team
     app.logger.info(f"Email verification code {code} sent to {user.email}")
 
 
-def send_phone_verification_sms(user, code): # Placeholder
-    """
-    Placeholder for sending SMS.
-    You'll need to integrate an SMS provider like Twilio here.
-    """
-    app = current_app._get_current_object()
-    app.logger.info(f"SIMULATING SMS: To {user.phone_number}, Code: {code}")
-    # Example with Twilio (conceptual, needs proper setup)
-    # from twilio.rest import Client
-    # account_sid = app.config['TWILIO_ACCOUNT_SID']
-    # auth_token = app.config['TWILIO_AUTH_TOKEN']
-    # client = Client(account_sid, auth_token)
-    # try:
-    #     message = client.messages.create(
-    #         body=f"Your Thubut verification code is: {code}",
-    #         from_=app.config['TWILIO_PHONE_NUMBER'],
-    #         to=user.phone_number # Assumes E.164 format
-    #     )
-    #     app.logger.info(f"SMS sent to {user.phone_number}, SID: {message.sid}")
-    # except Exception as e:
-    #     app.logger.error(f"Failed to send SMS to {user.phone_number}: {e}")
-    pass
-
 
 def send_password_reset_email(user, token):
     app = current_app._get_current_object()
@@ -173,3 +150,127 @@ The {app_name} Team
 """
     send_email(subject, [user.email], text_body, html_body)
     app.logger.info(f"Password reset email sent to {user.email}")
+
+
+def _send_rapidapi_sms_and_update_user_record(app_context, user_id_to_update):
+    """
+    Synchronous function to send SMS via RapidAPI and update the user's verification code.
+    This function is designed to be run in a background thread WITH an app_context.
+    It assumes the RapidAPI /send-numeric-verify endpoint generates its own code.
+    """
+    # This function now operates within the app_context provided by the thread caller
+    
+    api_key = current_app.config.get('RAPIDAPI_KEY') # Use current_app since we have context
+    api_host = current_app.config.get('RAPIDAPI_SMS_VERIFY_HOST')
+    api_url = f"https://{api_host}/send-numeric-verify"
+
+    if not api_key or not api_host:
+        current_app.logger.error("RapidAPI key or host not configured. Cannot send SMS.")
+        return False
+
+    # Fetch the user within this thread's context to ensure fresh session
+    user = User.query.get(user_id_to_update)
+    if not user:
+        current_app.logger.error(f"User with ID {user_id_to_update} not found for SMS.")
+        return False
+    
+    if not user.phone_number or not user.phone_number.startswith('+'):
+        current_app.logger.error(f"Cannot send SMS to user {user.id}: Invalid phone number format '{user.phone_number}'. Needs E.164.")
+        return False
+
+    headers = {
+        "content-type": "application/json",
+        "x-rapidapi-host": api_host,
+        "x-rapidapi-key": api_key
+    }
+    payload = {
+        "target": user.phone_number,
+        "estimate": True # As per your cURL example
+    }
+
+    current_app.logger.info(f"Attempting to send verification SMS to: {user.phone_number} via RapidAPI.")
+    current_app.logger.debug(f"SMS Payload: {payload}")
+
+    try:
+        response = requests.post(api_url, json=payload, headers=headers, timeout=25) # Increased timeout slightly
+        response.raise_for_status()
+        response_data = response.json()
+        current_app.logger.info(f"RapidAPI SMS request successful for {user.phone_number}! Status: {response.status_code}, Response: {response_data}")
+
+        # ---- CRITICAL PART: Extract API-generated code ----
+        # You MUST inspect the actual JSON response from the API to find the field containing the code.
+        # Common names could be "pin", "code", "verification_code", "otp", etc.
+        # Example: if response_data = {"status": "success", "pin": "123456", "transaction_id": "xyz"}
+        
+        api_generated_code = None
+        if isinstance(response_data, dict):
+            # Try common keys, adjust based on actual API response
+            possible_code_keys = ['pin', 'code', 'verificationCode', 'otp', 'numeric_code']
+            for key in possible_code_keys:
+                if key in response_data:
+                    api_generated_code = str(response_data[key]) # Ensure it's a string
+                    break
+            
+            if not api_generated_code and 'message' in response_data and 'id' in response_data: # Fallback for some APIs
+                 current_app.logger.warning(f"API response for {user.phone_number}: {response_data}. No clear code field. Check 'message' or 'id'. You may need to adjust parsing.")
+                 # This is a guess if the API is less direct.
+                 # Some APIs might return a message like "Verification code 123456 sent."
+                 # Or the 'id' might be the code. This is unlikely for 'send-numeric-verify'.
+
+        if api_generated_code:
+            user.phone_verification_code = api_generated_code
+            user.phone_verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10) # Reset expiry
+            db.session.commit()
+            current_app.logger.info(f"User {user.id} phone_verification_code updated to API-generated: {api_generated_code}")
+            return True
+        else:
+            current_app.logger.error(f"Could not extract verification code from RapidAPI response for {user.phone_number}. Response: {response_data}")
+            return False
+
+    except requests.exceptions.Timeout:
+        current_app.logger.error(f"RapidAPI SMS request timed out for {user.phone_number}.")
+    except requests.exceptions.HTTPError as e:
+        error_message = f"RapidAPI SMS HTTP error for {user.phone_number}: {e}"
+        if e.response is not None:
+            error_message += f" | Status: {e.response.status_code} | Response: {e.response.text}"
+            # Log the actual response text for debugging
+            current_app.logger.debug(f"RapidAPI Error Response Body: {e.response.text}")
+        current_app.logger.error(error_message)
+    except requests.exceptions.RequestException as e:
+        current_app.logger.error(f"RapidAPI SMS request failed for {user.phone_number}: {e}")
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in _send_rapidapi_sms_and_update_user_record for {user.phone_number}: {e}", exc_info=True)
+    
+    # If an error occurred before committing, rollback to be safe,
+    # though individual commits are preferred inside the try block.
+    # db.session.rollback() # Be cautious with rollback in a shared session context.
+    return False
+
+
+def send_phone_verification_sms(user_for_sms):
+    """
+    Starts a background thread to send a phone verification SMS using RapidAPI.
+    The API is expected to generate the code, which will then update the user's record.
+    """
+    app_instance = current_app._get_current_object() # Get the current app instance for the thread
+
+    if not app_instance.config.get('RAPIDAPI_KEY'):
+        app_instance.logger.warning("SMS sending skipped: RAPIDAPI_KEY not configured.")
+        return
+
+    if not user_for_sms or not hasattr(user_for_sms, 'id'):
+        app_instance.logger.error("Invalid user object passed to send_phone_verification_sms.")
+        return
+
+    # We pass user_for_sms.id to avoid passing the SQLAlchemy User object directly
+    # across thread boundaries if it's not thread-safe or to avoid detached instance issues.
+    # The target function will re-fetch the user by ID.
+    thread = Thread(target=_send_rapidapi_sms_with_context, args=(app_instance, user_for_sms.id))
+    thread.daemon = True
+    thread.start()
+    app_instance.logger.info(f"Phone verification SMS process queued for user ID: {user_for_sms.id}, phone: {user_for_sms.phone_number}")
+
+def _send_rapidapi_sms_with_context(app, user_id):
+    """Helper to run the SMS sending function within an app context in the thread."""
+    with app.app_context():
+        _send_rapidapi_sms_and_update_user_record(app, user_id)

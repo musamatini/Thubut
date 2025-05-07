@@ -37,6 +37,9 @@ app.config['TWILIO_ACCOUNT_SID'] = os.environ.get('TWILIO_ACCOUNT_SID')
 app.config['TWILIO_AUTH_TOKEN'] = os.environ.get('TWILIO_AUTH_TOKEN')
 app.config['TWILIO_PHONE_NUMBER'] = os.environ.get('TWILIO_PHONE_NUMBER')
 
+app.config['RAPIDAPI_KEY'] = os.environ.get('RAPIDAPI_KEY')
+app.config['RAPIDAPI_SMS_VERIFY_HOST'] = os.environ.get('RAPIDAPI_SMS_VERIFY_HOST', 'sms-verify3.p.rapidapi.com')
+
 
 # Initialize Extensions
 db.init_app(app)
@@ -102,13 +105,20 @@ def signup():
             user.set_languages(form.languages.data) # This now expects a list
             
             email_code = user.set_email_verification_code()
-            # phone_code = user.set_phone_verification_code() # Generate phone code too
+           
 
             db.session.add(user)
-            db.session.commit()
+            db.session.commit() # Commit user first
 
-            send_email_verification_code(user, email_code)
-            # send_phone_verification_sms(user, phone_code) # Send phone code via SMS
+            send_email_verification_code(user, email_code) # email_code from user.set_email_verification_code()
+            
+            # For phone, the API will generate the code
+            if user.phone_number: # Only send if phone number exists
+                send_phone_verification_sms(user) # No code argument needed
+
+            flash('Account created! Please check your email for a verification code. If you provided a phone number, a code will be sent via SMS too.', 'success')
+            session['signup_email_for_verification'] = user.email
+            return redirect(url_for('verify_email'))
 
             flash('Account created! Please check your email for a verification code.', 'success')
             # Redirect to a page that tells them to check email AND phone, or directly to email verification
@@ -275,19 +285,14 @@ def verify_phone():
 def resend_phone_code():
     user = current_user
     if user.phone_confirmed:
-        flash('Phone already confirmed.', 'info')
-    elif user.phone_number:
-        new_code = user.set_phone_verification_code()
-        try:
-            db.session.commit()
-            send_phone_verification_sms(user, new_code) # Actual SMS sending
-            flash('A new verification code has been sent to your phone.', 'success')
-        except Exception as e:
-            db.session.rollback()
-            # Log error
-            flash('Could not resend phone code.', 'danger')
+        flash('Your phone number is already confirmed.', 'info')
+        return redirect(url_for('dashboard')) # Or profile page
+        
+    if user.phone_number:
+        send_phone_verification_sms(user) # No code argument
+        flash('A new verification code is being sent to your phone. Please wait a moment.', 'success')
     else:
-        flash('No phone number on record to send code to.', 'warning')
+        flash('No phone number on record to send a code to.', 'warning')
     return redirect(url_for('verify_phone'))
 
 
