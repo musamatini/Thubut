@@ -1,8 +1,10 @@
 # utils.py
+import eventlet # Keep eventlet import even if unused in this file, it needs monkey_patch first in app.py
 import os
 import requests
 from threading import Thread
-from flask import current_app, url_for # Added url_for import
+# Added current_app import explicitly, also url_for is fine here
+from flask import current_app, url_for
 from requests.auth import HTTPBasicAuth
 import logging
 import datetime # Ensure datetime is imported for phone_verification_code_expires_at
@@ -130,24 +132,37 @@ def _send_rapidapi_sms_and_update_user_record(app_context, user_id_to_update):
     """
     Synchronous function to send SMS via RapidAPI and update the user's verification code.
     This function runs within the app_context provided by the thread caller.
-    The RapidAPI /send-numeric-verify endpoint is expected to generate its own code.
+    The RapidAPI /send-numeric-verify endpoint is expected to generate its own code
+    and return it in the response.
     """
     with app_context.app_context(): # Ensure app context for config and DB access
         api_key = current_app.config.get('RAPIDAPI_KEY')
         api_host = current_app.config.get('RAPIDAPI_SMS_VERIFY_HOST')
+        # MODIFIED: Correct endpoint URL based on docs if host didn't include path
+        # Assuming api_host is just the hostname, this is correct.
         api_url = f"https://{api_host}/send-numeric-verify"
+
 
         if not api_key or not api_host:
             current_app.logger.error("RapidAPI key or host not configured. Cannot send SMS.")
+            # db.session.rollback() # No session changes to roll back yet
             return False
 
         user = db.session.get(User, user_id_to_update) # Use db.session.get for SQLAlchemy 2.0+
         if not user:
             current_app.logger.error(f"User with ID {user_id_to_update} not found for SMS.")
+            # db.session.rollback()
             return False
         
+        # Added check for confirmed phone number to prevent resending if already confirmed
+        if user.phone_confirmed:
+             current_app.logger.info(f"Phone number {user.phone_number} for user {user.id} is already confirmed. Skipping SMS.")
+             # db.session.rollback()
+             return True # Indicate success from the perspective of not needing to send
+
         if not user.phone_number or not user.phone_number.startswith('+'):
             current_app.logger.error(f"Cannot send SMS to user {user.id}: Invalid phone number format '{user.phone_number}'. Needs E.164.")
+            # db.session.rollback()
             return False
 
         headers = {
@@ -155,17 +170,9 @@ def _send_rapidapi_sms_and_update_user_record(app_context, user_id_to_update):
             "x-rapidapi-host": api_host,
             "x-rapidapi-key": api_key
         }
-        # Payload for RapidAPI's "sms-verify3" /send-numeric-verify
-        # This endpoint typically generates a PIN itself and sends it.
-        # The `target` is the phone number.
-        # `estimate: true` seems to be a parameter from your example.
-        # `codeLength` and `codeType` might be relevant if the API supports customization,
-        # but for `send-numeric-verify`, it usually dictates its own format (e.g., 6-digit numeric).
+        # MODIFIED: Correct payload for "Send Verify SMS" - remove "estimate": True
         payload = {
-            "target": user.phone_number,
-            "estimate": True 
-            # "codeLength": 6, # Usually not needed if API sends its own code by default
-            # "codeType": "numeric" # Usually implied by endpoint name
+            "target": user.phone_number
         }
 
         current_app.logger.info(f"Attempting to send verification SMS to: {user.phone_number} via RapidAPI.")
@@ -173,59 +180,59 @@ def _send_rapidapi_sms_and_update_user_record(app_context, user_id_to_update):
 
         try:
             response = requests.post(api_url, json=payload, headers=headers, timeout=25)
-            response.raise_for_status()
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
             response_data = response.json()
             current_app.logger.info(f"RapidAPI SMS request successful for {user.phone_number}! Status: {response.status_code}, Response: {response_data}")
 
             # ---- CRITICAL: Extract API-generated code from response_data ----
-            # YOU MUST INSPECT THE ACTUAL JSON RESPONSE from "sms-verify3" to find the field containing the code it SENT.
-            # Common names: "pin", "code", "verification_code", "otp".
-            # Some APIs might not return the code if they handle verification entirely (e.g., via a subsequent "check-verify" call with a transaction_id).
-            # If "send-numeric-verify" only sends and doesn't return the code, you'll need a different RapidAPI endpoint or service
-            # that *does* return the code, or one where you provide the code to be sent.
+            # Based on the documentation provided for the "Send Verify SMS" endpoint,
+            # the code is returned in the 'verify_code' key.
             
-            api_generated_code = None
-            if isinstance(response_data, dict):
-                possible_code_keys = ['pin', 'code', 'verificationCode', 'otp', 'numeric_code', 'verifyPin'] # Added verifyPin
-                for key in possible_code_keys:
-                    if key in response_data and response_data[key]: # Check if key exists and has a value
-                        api_generated_code = str(response_data[key])
-                        current_app.logger.info(f"Extracted API-generated code '{api_generated_code}' from key '{key}'.")
-                        break
+            api_generated_code = response_data.get('verify_code')
             
             if api_generated_code:
-                user.phone_verification_code = api_generated_code
-                user.phone_verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+                # MODIFIED: Use the dedicated method in the User model
+                user.set_phone_verification_code_details(api_generated_code, expiry_minutes=10)
                 db.session.commit()
-                current_app.logger.info(f"User {user.id} phone_verification_code updated to API-generated: {api_generated_code}")
+                current_app.logger.info(f"User {user.id} phone_verification_code updated with API-generated code.")
                 return True
             else:
-                # This case is problematic if the API is supposed to return the code.
-                # It might mean the API call succeeded in *sending* an SMS, but we don't know the code.
-                # Or, the API call failed to provide the code in the response.
-                current_app.logger.error(f"Could not extract verification code from RapidAPI response for {user.phone_number}. Response: {response_data}. "
-                                         "The user's phone_verification_code in DB will NOT be updated with the API's code. "
-                                         "Check if the API ('send-numeric-verify') is supposed to return the sent code. "
-                                         "If not, you need a different API or method.")
-                # If the API sends a code but doesn't return it, our verify_phone route won't work as it checks against user.phone_verification_code.
-                # In this scenario, the user.set_phone_verification_code() method would be useless as we don't control the code sent.
+                # This means the API call was 200 OK, but 'verify_code' was not in the response.
+                # This shouldn't happen based on the docs for the Send endpoint, but log it.
+                current_app.logger.error(f"RapidAPI 'Send Verify SMS' succeeded (200 OK) but 'verify_code' key was missing or empty in response for {user.phone_number}. Response: {response_data}. "
+                                         "The user's phone_verification_code in DB will NOT be updated.")
+                # db.session.rollback() # No session changes to roll back
                 return False # Indicate failure to get/store the code
 
         except requests.exceptions.Timeout:
             current_app.logger.error(f"RapidAPI SMS request timed out for {user.phone_number}.")
+            # db.session.rollback()
         except requests.exceptions.HTTPError as e:
             error_message = f"RapidAPI SMS HTTP error for {user.phone_number}: {e}"
             if e.response is not None:
                 error_message += f" | Status: {e.response.status_code} | Response: {e.response.text}"
                 current_app.logger.debug(f"RapidAPI Error Response Body: {e.response.text}")
             current_app.logger.error(error_message)
+            # db.session.rollback()
         except requests.exceptions.RequestException as e:
             current_app.logger.error(f"RapidAPI SMS request failed for {user.phone_number}: {e}")
+            # db.session.rollback()
         except Exception as e:
             current_app.logger.error(f"Unexpected error in _send_rapidapi_sms_and_update_user_record for {user.phone_number}: {e}", exc_info=True)
+            # db.session.rollback()
         
-        # db.session.rollback() # Avoid rollback here as commit is specific to success
-        return False
+        # If any exception occurred before commit, the session is likely not clean.
+        # It's generally safer to rollback on any API call failure that might leave the session in a partial state,
+        # *unless* you're explicitly handling retries or partial updates.
+        # Given this is in a thread, rollback is safest.
+        with app_context.app_context():
+             # Check if a transaction is active before rolling back
+             if db.session.dirty or db.session.new or db.session.deleted:
+                  db.session.rollback()
+                  current_app.logger.warning("Rolled back DB session in _send_rapidapi_sms_and_update_user_record due to error.")
+
+
+        return False # Indicate failure to send/process SMS
 
 
 def send_phone_verification_sms(user_for_sms):
@@ -235,6 +242,7 @@ def send_phone_verification_sms(user_for_sms):
         app_instance.logger.warning("SMS sending skipped: RAPIDAPI_KEY not configured.")
         return
 
+    # Use user_for_sms.id for safety in the thread
     if not user_for_sms or not hasattr(user_for_sms, 'id') or not user_for_sms.phone_number:
         app_instance.logger.error(f"Invalid user or no phone number for send_phone_verification_sms. User: {user_for_sms}")
         return

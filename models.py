@@ -3,7 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from flask import current_app
+# MODIFIED: Moved current_app import to the top and added alias as app for logger calls
+from flask import current_app as app
 import json
 import datetime
 import random
@@ -29,7 +30,7 @@ class User(UserMixin, db.Model):
     email_verification_code_expires_at = db.Column(db.DateTime, nullable=True)
 
     phone_confirmed = db.Column(db.Boolean, default=False, nullable=False)
-    phone_verification_code = db.Column(db.String(10), nullable=True) # Increased length for API codes
+    phone_verification_code = db.Column(db.String(10), nullable=True) # Increased length for API codes (might be longer than 6)
     phone_verification_code_expires_at = db.Column(db.DateTime, nullable=True)
 
     role = db.Column(db.String(20), default='Memorizer', nullable=False)
@@ -66,8 +67,10 @@ class User(UserMixin, db.Model):
         Sets the phone verification code (typically received from an external API) and its expiry.
         This method is for when an external API *provides* you the code it sent.
         """
-        self.phone_verification_code = str(code_from_api) # Ensure it's a string
+        # Ensure the code is a string to avoid type comparison issues later
+        self.phone_verification_code = str(code_from_api) 
         self.phone_verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=expiry_minutes)
+        app.logger.debug(f"User {self.id}: Set phone verification code and expiry.")
         # Note: This method doesn't return the code as it's an input.
 
     # This method might be less useful if the SMS API sends its own code that we don't pre-generate.
@@ -79,56 +82,77 @@ class User(UserMixin, db.Model):
 
     def verify_phone_code(self, code):
         current_time = datetime.datetime.utcnow()
-        app.logger.debug(f"Verifying phone code for user {self.id}. Submitted: '{code}', Stored: '{self.phone_verification_code}', Expires: {self.phone_verification_code_expires_at}, Current: {current_time}")
-        if self.phone_verification_code == str(code) and \
-           self.phone_verification_code_expires_at and \
-           self.phone_verification_code_expires_at > current_time:
+        # Use == comparison for string codes
+        is_code_match = (self.phone_verification_code is not None) and (str(self.phone_verification_code) == str(code))
+        is_not_expired = (self.phone_verification_code_expires_at is not None) and (self.phone_verification_code_expires_at > current_time)
+
+        app.logger.debug(f"Verifying phone code for user {self.id}. Submitted: '{code}', Stored: '{self.phone_verification_code}', Expires: {self.phone_verification_code_expires_at}, Current: {current_time}. Match: {is_code_match}, Not Expired: {is_not_expired}")
+
+        if is_code_match and is_not_expired:
             # self.phone_confirmed = True # Actual confirmation flag set in the route
             self.phone_verification_code = None # Clear code after use
             self.phone_verification_code_expires_at = None
             app.logger.info(f"Phone code verification successful for user {self.id}.")
             return True
-        app.logger.warning(f"Phone code verification FAILED for user {self.id}. Submitted: '{code}', Stored: '{self.phone_verification_code}', Expires: {self.phone_verification_code_expires_at}, Valid: {self.phone_verification_code_expires_at > current_time if self.phone_verification_code_expires_at else False}")
+        
+        # Clear code on failure to prevent brute-forcing the same old code
+        if self.phone_verification_code:
+             app.logger.warning(f"Phone code verification FAILED for user {self.id}. Clearing code.")
+             self.phone_verification_code = None # Clear code on failed attempt
+             self.phone_verification_code_expires_at = None # Clear expiry
+
         return False
 
 
     def get_password_reset_token(self, expires_in_seconds=600): # 10 minutes
-        s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        s = URLSafeTimedSerializer(app.config['SECRET_KEY']) # Use app.config
         self.password_reset_token_expires_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in_seconds)
         return s.dumps(self.email, salt='password-reset-salt')
 
     @staticmethod
     def verify_password_reset_token(token, max_age_seconds=600):
-        s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+        s = URLSafeTimedSerializer(app.config['SECRET_KEY']) # Use app.config
         try:
             email = s.loads(token, salt='password-reset-salt', max_age=max_age_seconds)
         except (SignatureExpired, BadSignature) as e:
-            current_app.logger.warning(f"Password reset token verification failed: {e}")
+            app.logger.warning(f"Password reset token verification failed: {e}")
             return None
         
         user = User.query.filter_by(email=email).first()
+        # Also check against the stored expiry time in the DB as an extra layer
         if user and user.password_reset_token_expires_at and \
            user.password_reset_token_expires_at < datetime.datetime.utcnow():
-            current_app.logger.warning(f"Password reset token for {email} has expired based on DB record.")
-            return None # Token is also expired based on our stored expiry (double check)
-        return user
+            app.logger.warning(f"Password reset token for {email} has expired based on DB record.")
+            # Optionally, clear these fields if they exist but are expired
+            # user.password_reset_token_expires_at = None
+            # db.session.commit() # Requires a session context and potential commit
+            return None # Token is expired
+
+        # If the token was valid according to itsdangerous, but no user or expired in DB
+        if not user:
+             app.logger.warning(f"Password reset token valid for email {email} but no user found.")
+             return None
+        
+        return user # Token is valid and user found
+
 
     def set_languages(self, lang_list):
         if not lang_list:
-            raise ValueError("Languages cannot be empty.")
+            # Or handle this validation in the form
+            raise ValueError("Languages cannot be empty.") 
         self.languages = json.dumps(lang_list)
 
     def get_languages(self):
         if self.languages:
             try:
                 return json.loads(self.languages)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, TypeError): # Handle None or non-string
+                app.logger.error(f"Error decoding languages JSON for user {self.id}: {self.languages}")
                 return []
         return []
 
     def __repr__(self):
         return f'<User {self.username} ({self.id})>'
 
-# Add a global app reference for logging in User model methods if needed outside request context
-# This is a bit of a hack, prefer passing logger or using current_app if available
-from flask import current_app as app
+# The import was moved to the top and aliased as 'app'
+# from flask import current_app as app # REMOVED from here

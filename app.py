@@ -7,7 +7,8 @@ import logging
 import phonenumbers
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, current_app
-from flask_socketio import SocketIO
+# MODIFIED: Added emit, join_room, leave_room, disconnect
+from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
@@ -61,6 +62,12 @@ def load_user(user_id):
             return None
 
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+
+# --- Global state for SocketIO rooms and users ---
+# ADDED: Initialization for rooms_data and user_states_in_rooms
+rooms_data = {}
+user_states_in_rooms = {}
+
 
 instance_path = app.instance_path
 if not os.path.exists(instance_path):
@@ -401,7 +408,8 @@ def internal_error(error):
 # --- SocketIO Event Handlers ---
 
 @socketio.on('connect')
-def on_connect():
+# MODIFIED: Changed signature to accept auth argument
+def on_connect(auth=None): 
     logger = current_app.logger
     if current_user.is_authenticated:
         logger.info(f"Authenticated client connected: {current_user.username} ({request.sid})")
@@ -417,14 +425,18 @@ def on_connect():
         logger.warning(f"Unauthenticated client connected: {request.sid}")
         emit('auth_status', {'authenticated': False, 'message': 'Not authenticated.'}, room=request.sid)
         # Consider disconnecting unauthenticated users immediately if calls require auth
-        # from flask_socketio import disconnect
-        # disconnect()
+        # disconnect() # Now disconnect is imported, so no 'from flask_socketio import disconnect' needed here
 
 
 @socketio.on('disconnect')
-def on_disconnect():
+# MODIFIED: Changed signature to accept *args
+def on_disconnect(*args):
     logger = current_app.logger
     logger.info(f"Client disconnected: {request.sid}")
+    
+    # Ensure rooms_data and user_states_in_rooms are globally accessible if modified
+    # (already handled by them being global variables)
+
     # Clean up user from all rooms they might have been in
     for room_id, sids_in_room in list(rooms_data.items()): # Iterate over a copy for safe modification
         if request.sid in sids_in_room:
@@ -631,6 +643,8 @@ if __name__ == '__main__':
     print(f"Attempting to start SocketIO server on {host}:{port}")
     try:
         # use_reloader should be False for eventlet/gunicorn in production
+        # For local development with eventlet, use_reloader=True can sometimes cause issues,
+        # but it's often desired. Set based on your FLASK_DEBUG.
         socketio.run(app, host=host, port=port, use_reloader=use_flask_debug, log_output=True, debug=use_flask_debug)
     except Exception as e:
          logging.error(f"Failed to start SocketIO server: {e}", exc_info=True)
