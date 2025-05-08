@@ -289,64 +289,68 @@ def resend_verification_email():
     return redirect(url_for('verify_email'))
 
 @app.route('/verify_phone', methods=['GET', 'POST'])
-@login_required
+@login_required # current_user is initially loaded here
 def verify_phone():
     form = VerificationCodeForm()
-    user = current_user # This user is loaded by load_user
-    app.logger.info(f"[verify_phone] Entered. User: {user.email} (ID: {user.id}). Email_confirmed: {user.email_confirmed}, Phone_confirmed: {user.phone_confirmed}")
+    # user_before_potential_relogin = current_user # Keep a reference if needed
+    
+    # It's safer to operate on a fresh query if you're changing its state
+    # and then re-logging in. This ensures the 'user' object is clean.
+    user = db.session.get(User, int(current_user.get_id())) # Get a fresh instance tied to the session
+    if not user: # Should not happen if @login_required worked
+        app.logger.error(f"[verify_phone] CRITICAL: User {current_user.get_id()} not found in DB after @login_required.")
+        flash('An unexpected error occurred. Please try again.', 'danger')
+        return redirect(url_for('login'))
+
+    app.logger.info(f"[verify_phone] Entered. User: {user.email} (ID: {user.id}). Initial Email_confirmed: {user.email_confirmed}, Initial Phone_confirmed: {user.phone_confirmed}")
 
     if not user.phone_number:
-        flash('You do not have a phone number registered. Please add one in your profile.', 'warning')
-        app.logger.warning(f"[verify_phone] User {user.id} has no phone number. Redirecting to dashboard.")
+        flash('You do not have a phone number registered.', 'warning')
         return redirect(url_for('dashboard'))
 
-    if user.phone_confirmed: # Check if already confirmed before form validation
+    if user.phone_confirmed:
         flash('Your phone number is already confirmed.', 'info')
-        app.logger.info(f"[verify_phone] User {user.id} phone already confirmed. Redirecting to dashboard.")
         return redirect(url_for('dashboard'))
 
     if form.validate_on_submit():
         app.logger.info(f"[verify_phone] Form submitted for user {user.id}. Code: {form.code.data}")
-        if user.verify_phone_code(form.code.data): # This clears code and expiry if valid, returns True
+        if user.verify_phone_code(form.code.data):
             try:
                 app.logger.info(f"[verify_phone] Phone code verification successful for user {user.id}.")
                 
-                user.phone_confirmed = True # <<< --- THIS IS THE CRITICAL FIX ---
+                user.phone_confirmed = True
                 app.logger.info(f"[verify_phone] User {user.id} instance phone_confirmed set to True.")
                 
-                db.session.add(user) # Ensure the instance is managed by the session
-                app.logger.debug(f"[verify_phone] Before commit for user {user.id}: session.dirty includes user? {user in db.session.dirty}. Instance phone_confirmed: {user.phone_confirmed}")
-                
+                # db.session.add(user) # Not strictly necessary if 'user' was fetched with db.session.get and modified
                 db.session.commit()
-                app.logger.info(f"[verify_phone] DB commit successful for user {user.id}. phone_confirmed should be True in DB.")
+                app.logger.info(f"[verify_phone] DB commit successful for user {user.id}. phone_confirmed is now True in DB for user.id {user.id}.")
 
-                # Optional: Re-fetch for debugging to confirm DB state
-                check_user_from_db = db.session.get(User, user.id)
-                if check_user_from_db:
-                    app.logger.info(f"[verify_phone] DEBUG: Re-fetched user {check_user_from_db.id} post-commit. DB/Session state phone_confirmed: {check_user_from_db.phone_confirmed}")
+                # Re-login the user to update Flask-Login's session state.
+                # The 'user' object here is the one with user.phone_confirmed = True
+                login_user(user, force=True) 
                 
-                # Re-login the user to ensure Flask-Login's session is updated with the user object
-                # that now has phone_confirmed = True.
-                login_user(user, force=True)
-                app.logger.info(f"[verify_phone] After re-login, current_user (ID: {current_user.id}) has phone_confirmed: {current_user.phone_confirmed}")
-
+                # IMPORTANT: For logging immediately after, refer to the 'user' object,
+                # as current_user proxy might still be resolving or could trigger recursion
+                # if _get_user is problematic under some edge conditions.
+                app.logger.info(f"[verify_phone] After re-login, logged-in user (ID: {user.id}) should have phone_confirmed: {user.phone_confirmed} (from user object)")
 
                 flash('Your phone number has been confirmed!', 'success')
                 
-                # After successful phone verification, check email status (using the updated current_user)
-                if not current_user.email_confirmed: # Should usually be true if they got here, but good check
-                    app.logger.info(f"[verify_phone] User {current_user.id} phone confirmed, but email NOT confirmed. Redirecting to verify_email.")
-                    flash('Phone confirmed! Please also verify your email to complete your profile setup.', 'info')
-                    session['signup_email_for_verification'] = current_user.email
+                # Now, when redirecting, the NEXT request will use load_user, which will fetch the updated user.
+                # For the logic below within THIS request, we can rely on the 'user' object we have.
+                if not user.email_confirmed: 
+                    app.logger.info(f"[verify_phone] User {user.id} phone confirmed, but email NOT confirmed. Redirecting to verify_email.")
+                    flash('Phone confirmed! Please also verify your email.', 'info')
+                    session['signup_email_for_verification'] = user.email
                     return redirect(url_for('verify_email'))
                 else:
-                    # If email is also confirmed, all good for dashboard
-                    app.logger.info(f"[verify_phone] User {current_user.id} phone AND email confirmed. Redirecting to dashboard.")
+                    app.logger.info(f"[verify_phone] User {user.id} phone AND email confirmed. Redirecting to dashboard.")
                     flash('All required verifications complete! Welcome!', 'success')
                     return redirect(url_for('dashboard'))
             except Exception as e:
                 db.session.rollback()
-                app.logger.error(f"[verify_phone] Error saving phone confirmation for {user.username}: {e}", exc_info=True)
+                # Use the 'user' object here for username, not current_user if it might be unstable
+                app.logger.error(f"[verify_phone] Error during phone confirmation logic for {user.username if user else 'UNKNOWN USER'}: {e}", exc_info=True)
                 flash('An error occurred during phone verification. Please try again.', 'danger')
         else:
             app.logger.warning(f"[verify_phone] Invalid or expired phone verification code submitted by user {user.id}.")
