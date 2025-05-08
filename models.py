@@ -53,15 +53,20 @@ class User(UserMixin, db.Model):
         self.email_verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         return self.email_verification_code
 
+          
     def verify_email_code(self, code):
         if self.email_verification_code == code and \
-           self.email_verification_code_expires_at and \
-           self.email_verification_code_expires_at > datetime.datetime.utcnow():
-            self.email_confirmed = True # Mark as confirmed
-            self.email_verification_code = None # Clear after use
+        self.email_verification_code_expires_at and \
+        self.email_verification_code_expires_at > datetime.datetime.utcnow():
+            self.email_confirmed = True
+            app.logger.info(f"[User.verify_email_code] User {self.id}: email_confirmed set to True on instance.") # LOG
+            self.email_verification_code = None
             self.email_verification_code_expires_at = None
             return True
+        app.logger.warning(f"[User.verify_email_code] User {self.id}: Code '{code}' verification failed. Stored: '{self.email_verification_code}', Expires: {self.email_verification_code_expires_at}") # LOG
         return False
+
+    
 
     def set_phone_verification_code_details(self, code_from_api, expiry_minutes=10):
         """

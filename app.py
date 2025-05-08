@@ -177,42 +177,77 @@ def verify_email():
 
     if current_user.is_authenticated and not current_user.email_confirmed:
         user_to_verify = current_user
-        email_to_verify = current_user.email
+        app.logger.info(f"[verify_email] Using current_user (ID: {user_to_verify.id}, Email: {user_to_verify.email}) for verification. Initial email_confirmed: {user_to_verify.email_confirmed}")
     elif email_to_verify:
         user_to_verify = User.query.filter_by(email=email_to_verify).first()
+        if user_to_verify:
+             app.logger.info(f"[verify_email] Found user (ID: {user_to_verify.id}, Email: {user_to_verify.email}) from session email. Initial email_confirmed: {user_to_verify.email_confirmed}")
+        else:
+             app.logger.warning(f"[verify_email] No user found for email from session: {email_to_verify}")
+
 
     if not user_to_verify:
         flash('No email found for verification. Please sign up or log in.', 'warning')
+        app.logger.warning("[verify_email] No user_to_verify found.")
         return redirect(url_for('signup'))
     
-    if user_to_verify.email_confirmed:
+    app.logger.info(f"[verify_email] Processing for user {user_to_verify.email} (ID: {user_to_verify.id}). Current instance email_confirmed: {user_to_verify.email_confirmed}")
+
+    if user_to_verify.email_confirmed: # Check if already confirmed before form validation
         flash('Your email is already confirmed.', 'info')
         if 'signup_email_for_verification' in session:
             session.pop('signup_email_for_verification', None)
         return redirect(url_for('dashboard') if current_user.is_authenticated else url_for('login'))
 
     if form.validate_on_submit():
+        app.logger.info(f"[verify_email] Form submitted for {user_to_verify.email}. Code: {form.code.data}")
         if user_to_verify.verify_email_code(form.code.data): # This sets user_to_verify.email_confirmed = True
             try:
-                db.session.commit() # This saves email_confirmed = True to DB
+                app.logger.info(f"[verify_email] User {user_to_verify.email} (ID: {user_to_verify.id}) instance has email_confirmed = {user_to_verify.email_confirmed} after verify_email_code method call.")
+                
+                db.session.add(user_to_verify) # Explicitly add to session tracking
+                
+                app.logger.debug(f"[verify_email] Before commit for {user_to_verify.email}: session.dirty includes user? {user_to_verify in db.session.dirty}. Instance email_confirmed: {user_to_verify.email_confirmed}")
+
+                db.session.commit()
+                app.logger.info(f"[verify_email] DB commit successful for {user_to_verify.email}. email_confirmed should be True in DB.")
+
+                # CRITICAL DEBUG: Re-fetch to see what the DB (or session's post-commit state) says
+                # db.session.expire(user_to_verify) # Option 1: expire current instance
+                check_user_from_db = db.session.get(User, user_to_verify.id) # Option 2: get fresh
+                if check_user_from_db:
+                    app.logger.info(f"[verify_email] DEBUG: Re-fetched user {check_user_from_db.id} post-commit. DB/Session state email_confirmed: {check_user_from_db.email_confirmed}")
+                    # If check_user_from_db is not user_to_verify, update user_to_verify to this fresh instance
+                    # user_to_verify = check_user_from_db 
+                else:
+                    app.logger.error(f"[verify_email] DEBUG: Could not re-fetch user {user_to_verify.id} after commit.")
+
                 flash('Your email has been confirmed!', 'success')
                 if 'signup_email_for_verification' in session:
                     session.pop('signup_email_for_verification', None)
                 
-                # Ensure the user whose email was just confirmed is logged in.
+                # Ensure current_user reflects the confirmed state for THIS request's logic and for Flask-Login's session
                 if not current_user.is_authenticated or current_user.id != user_to_verify.id:
-                    login_user(user_to_verify)
-                # Now, current_user is definitively the user whose email was just verified.
+                    app.logger.info(f"[verify_email] Logging in user {user_to_verify.email} (ID: {user_to_verify.id}) as they were not current_user or not authenticated.")
+                    login_user(user_to_verify) # user_to_verify has .email_confirmed = True from instance or re-fetch
+                elif current_user.id == user_to_verify.id and not current_user.email_confirmed:
+                    # current_user was the one, but its instance might be stale. Re-login with the updated object.
+                    app.logger.info(f"[verify_email] current_user (ID: {current_user.id}) was user_to_verify. Forcing re-login to update session state with email_confirmed=True.")
+                    login_user(user_to_verify, force=True) # Use the user_to_verify object that has email_confirmed=True
                 
-                # Proceed with current_user for next steps
+                # Now, current_user should be the user whose email was just verified, and its email_confirmed should be True
+                app.logger.info(f"[verify_email] After login logic, current_user (ID: {current_user.id}) has email_confirmed: {current_user.email_confirmed}")
+
                 if current_user.phone_number and not current_user.phone_confirmed:
-                    flash('Email confirmed! Next, please verify your phone number. A code is being sent.', 'info') # Updated flash
-                    send_phone_verification_sms(current_user) # <<< ADD SMS SEND HERE
+                    app.logger.info(f"[verify_email] Redirecting user {current_user.email} to verify_phone. Phone confirmed: {current_user.phone_confirmed}")
+                    send_phone_verification_sms(current_user)
                     return redirect(url_for('verify_phone'))
+                
+                app.logger.info(f"[verify_email] Redirecting user {current_user.email} to dashboard.")
                 return redirect(url_for('dashboard'))
             except Exception as e:
                 db.session.rollback()
-                app.logger.error(f"Error saving email confirmation for {user_to_verify.email}: {e}", exc_info=True)
+                app.logger.error(f"[verify_email] Error saving email confirmation for {user_to_verify.email}: {e}", exc_info=True)
                 flash('An error occurred. Please try again.', 'danger')
         else:
             flash('Invalid or expired verification code. Please try again or request a new one.', 'danger')
@@ -257,8 +292,8 @@ def resend_verification_email():
 @login_required
 def verify_phone():
     form = VerificationCodeForm()
-    user = current_user
-
+    user = current_user 
+    app.logger.info(f"[verify_phone] Entered. User: {user.email} (ID: {user.id}). Email_confirmed: {user.email_confirmed}, Phone_confirmed: {user.phone_confirmed}")
     if not user.phone_number:
         flash('You do not have a phone number registered. Please add one in your profile.', 'warning')
         return redirect(url_for('dashboard'))
@@ -351,6 +386,7 @@ def reset_password_token_route(token):
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    app.logger.info(f"[dashboard] Entered. User: {current_user.email} (ID: {current_user.id}). Email_confirmed: {current_user.email_confirmed}, Phone_confirmed: {current_user.phone_confirmed}")
     if not current_user.email_confirmed:
         flash('Please verify your email address to access the dashboard.', 'warning')
         session['signup_email_for_verification'] = current_user.email
