@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400..900&display=swap" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     {# Your existing CSS #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -17,7 +18,7 @@
     {# If you're not using Bootstrap, tom-select.default.css might be better:
        https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.default.css #}
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.css" rel="stylesheet">
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {# Block for extra head content from child templates (e.g., page-specific styles) #}
     {% block head_extra %}{% endblock %}
 </head>
