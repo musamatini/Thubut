@@ -1,4 +1,6 @@
 # forms.py
+import eventlet
+eventlet.monkey_patch()
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, SelectMultipleField, BooleanField, widgets, DateField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError

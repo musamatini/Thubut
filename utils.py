@@ -1,5 +1,6 @@
 # utils.py
-import eventlet # Keep eventlet import even if unused in this file, it needs monkey_patch first in app.py
+import eventlet
+eventlet.monkey_patch()
 import os
 import requests
 from threading import Thread
