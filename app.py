@@ -106,12 +106,10 @@ def signup():
             db.session.commit()
 
             send_email_verification_code(user, email_code)
-            if user.phone_number:
-                send_phone_verification_sms(user)
 
             flash_message = 'Account created! Please check your email for a verification code.'
             if user.phone_number:
-                flash_message += ' If you provided a phone number, an SMS code will be sent for phone verification after you verify your email.'
+                flash_message += ' If you provided a phone number, you will be prompted to verify it after email confirmation.'
             flash(flash_message, 'success')
             session['signup_email_for_verification'] = user.email
             return redirect(url_for('verify_email'))
@@ -138,18 +136,25 @@ def login():
         return redirect(url_for('dashboard'))
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data.lower()).first()
-        if user and user.check_password(form.password.data):
-            if not user.email_confirmed:
+        user_from_db = User.query.filter_by(email=form.email.data.lower()).first()
+        if user_from_db and user_from_db.check_password(form.password.data):
+            # Log the user in first
+            login_user(user_from_db, remember=form.remember.data)
+
+            # Now check verifications using current_user (which is user_from_db after login_user)
+            if not current_user.email_confirmed:
+                 # Store email before logging out, as verify_email needs it if user is unauthenticated
+                 session['signup_email_for_verification'] = user_from_db.email
+                 logout_user() 
                  flash('Your email address is not verified. Please check your inbox or use the verification page to get a new code.', 'warning')
-                 session['signup_email_for_verification'] = user.email
                  return redirect(url_for('verify_email'))
 
-            if user.phone_number and not user.phone_confirmed:
-                flash('Please confirm your phone number to complete login.', 'warning')
-                return redirect(url_for('verify_phone'))
+            if current_user.phone_number and not current_user.phone_confirmed:
+                flash('Please confirm your phone number to complete login. A code is being sent.', 'warning')
+                send_phone_verification_sms(current_user) # <<< ADD SMS SEND HERE
+                return redirect(url_for('verify_phone')) # User is logged in, so @login_required on verify_phone is met
 
-            login_user(user, remember=form.remember.data)
+            # If all verifications passed (or phone not applicable)
             next_page = request.args.get('next')
             flash('Login successful!', 'success')
             return redirect(next_page or url_for('dashboard'))
@@ -187,19 +192,22 @@ def verify_email():
         return redirect(url_for('dashboard') if current_user.is_authenticated else url_for('login'))
 
     if form.validate_on_submit():
-        if user_to_verify.verify_email_code(form.code.data):
+        if user_to_verify.verify_email_code(form.code.data): # This sets user_to_verify.email_confirmed = True
             try:
-                db.session.commit()
+                db.session.commit() # This saves email_confirmed = True to DB
                 flash('Your email has been confirmed!', 'success')
                 if 'signup_email_for_verification' in session:
                     session.pop('signup_email_for_verification', None)
                 
-                if not current_user.is_authenticated:
+                # Ensure the user whose email was just confirmed is logged in.
+                if not current_user.is_authenticated or current_user.id != user_to_verify.id:
                     login_user(user_to_verify)
-
-                active_user = current_user
-                if active_user.phone_number and not active_user.phone_confirmed:
-                    flash('Email confirmed! Next, please verify your phone number.', 'info')
+                # Now, current_user is definitively the user whose email was just verified.
+                
+                # Proceed with current_user for next steps
+                if current_user.phone_number and not current_user.phone_confirmed:
+                    flash('Email confirmed! Next, please verify your phone number. A code is being sent.', 'info') # Updated flash
+                    send_phone_verification_sms(current_user) # <<< ADD SMS SEND HERE
                     return redirect(url_for('verify_phone'))
                 return redirect(url_for('dashboard'))
             except Exception as e:
@@ -209,7 +217,7 @@ def verify_email():
         else:
             flash('Invalid or expired verification code. Please try again or request a new one.', 'danger')
     
-    return render_template('auth/verify_email.html', title='Verify Email', form=form, email=email_to_verify)
+    return render_template('auth/verify_email.html', title='Verify Email', form=form, email=user_to_verify.email if user_to_verify else email_to_verify)
 
 @app.route('/resend_verification_email', methods=['POST'])
 def resend_verification_email():
