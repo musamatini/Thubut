@@ -1,3 +1,4 @@
+# app.py
 import eventlet
 eventlet.monkey_patch() # IMPORTANT: Must be the very first effective line
 import os
@@ -5,7 +6,7 @@ import datetime
 import logging
 import phonenumbers
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, current_app, jsonify # Added jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, current_app
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 from flask_wtf.csrf import CSRFProtect
@@ -13,8 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Adjusted model import to include MemorizationProgress
-from models import db, User, MemorizationProgress
+from models import db, User
 from forms import SignupForm, LoginForm, VerificationCodeForm, PasswordResetRequestForm, ResetPasswordForm
 from utils import send_email_verification_code, send_phone_verification_sms, send_password_reset_email
 
@@ -36,7 +36,7 @@ app.config['RAPIDAPI_KEY'] = os.environ.get('RAPIDAPI_KEY')
 app.config['RAPIDAPI_SMS_VERIFY_HOST'] = os.environ.get('RAPIDAPI_SMS_VERIFY_HOST', 'sms-verify3.p.rapidapi.com')
 
 db.init_app(app)
-csrf = CSRFProtect(app) # CSRF protection for forms and AJAX POST if needed
+csrf = CSRFProtect(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -44,54 +44,6 @@ login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
 login_manager.login_message = 'Please log in to access this page.'
 
-# --- Quran Structure Constants and Helpers ---
-QURAN_TOTAL_PAGES = 604
-_QURAN_JUZ_INFO_LIST = [
-    {'juz': 1, 'start_page': 1, 'num_pages': 21}, {'juz': 2, 'start_page': 22, 'num_pages': 20},
-    {'juz': 3, 'start_page': 42, 'num_pages': 20}, {'juz': 4, 'start_page': 62, 'num_pages': 20},
-    {'juz': 5, 'start_page': 82, 'num_pages': 20}, {'juz': 6, 'start_page': 102, 'num_pages': 20},
-    {'juz': 7, 'start_page': 122, 'num_pages': 20}, {'juz': 8, 'start_page': 142, 'num_pages': 20},
-    {'juz': 9, 'start_page': 162, 'num_pages': 20}, {'juz': 10, 'start_page': 182, 'num_pages': 20},
-    {'juz': 11, 'start_page': 202, 'num_pages': 20}, {'juz': 12, 'start_page': 222, 'num_pages': 20},
-    {'juz': 13, 'start_page': 242, 'num_pages': 20}, {'juz': 14, 'start_page': 262, 'num_pages': 20},
-    {'juz': 15, 'start_page': 282, 'num_pages': 20}, {'juz': 16, 'start_page': 302, 'num_pages': 20},
-    {'juz': 17, 'start_page': 322, 'num_pages': 20}, {'juz': 18, 'start_page': 342, 'num_pages': 20},
-    {'juz': 19, 'start_page': 362, 'num_pages': 20}, {'juz': 20, 'start_page': 382, 'num_pages': 20},
-    {'juz': 21, 'start_page': 402, 'num_pages': 20}, {'juz': 22, 'start_page': 422, 'num_pages': 20},
-    {'juz': 23, 'start_page': 442, 'num_pages': 20}, {'juz': 24, 'start_page': 462, 'num_pages': 20},
-    {'juz': 25, 'start_page': 482, 'num_pages': 20}, {'juz': 26, 'start_page': 502, 'num_pages': 20},
-    {'juz': 27, 'start_page': 522, 'num_pages': 20}, {'juz': 28, 'start_page': 542, 'num_pages': 20},
-    {'juz': 29, 'start_page': 562, 'num_pages': 20}, {'juz': 30, 'start_page': 582, 'num_pages': 23}
-]
-
-QURAN_JUZ_INFO_MAP = {
-    item['juz']: {
-        'start_page': item['start_page'],
-        'num_pages': item['num_pages'],
-        'end_page': item['start_page'] + item['num_pages'] - 1
-    }
-    for item in _QURAN_JUZ_INFO_LIST
-}
-
-def get_juz_for_page(page_number_quran):
-    for juz_info_item in _QURAN_JUZ_INFO_LIST:
-        if juz_info_item['start_page'] <= page_number_quran < juz_info_item['start_page'] + juz_info_item['num_pages']:
-            return juz_info_item['juz']
-    return None
-
-def get_pages_in_juz(juz_number):
-    if juz_number in QURAN_JUZ_INFO_MAP:
-        info = QURAN_JUZ_INFO_MAP[juz_number]
-        return list(range(info['start_page'], info['end_page'] + 1))
-    return []
-
-def get_page_number_within_juz(page_number_quran):
-    juz_num = get_juz_for_page(page_number_quran)
-    if juz_num and juz_num in QURAN_JUZ_INFO_MAP:
-        juz_start_page = QURAN_JUZ_INFO_MAP[juz_num]['start_page']
-        return page_number_quran - juz_start_page + 1 # 1-indexed
-    return None
-# --- End Quran Structure ---
 
 @app.context_processor
 def inject_now():
@@ -108,6 +60,7 @@ def load_user(user_id):
 
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 
+# Global state for SocketIO rooms and user states (e.g., speaking, muted)
 rooms_data = {}
 user_states_in_rooms = {}
 
@@ -137,13 +90,8 @@ def signup():
             raw_phone = form.phone_number.data
             e164_phone_number = None
             if raw_phone:
-                parsed_phone = phonenumbers.parse(raw_phone, None) # Region None for international numbers
-                if phonenumbers.is_valid_number(parsed_phone):
-                     e164_phone_number = phonenumbers.format_number(parsed_phone, phonenumbers.PhoneNumberFormat.E164)
-                else: # Form validator should catch this, but as a fallback
-                    flash('Invalid phone number format. Please ensure it is correct and includes a country code.', 'danger')
-                    return render_template('auth/signup.html', title='Sign Up', form=form)
-
+                parsed_phone = phonenumbers.parse(raw_phone, None)
+                e164_phone_number = phonenumbers.format_number(parsed_phone, phonenumbers.PhoneNumberFormat.E164)
 
             user = User(
                 fullname=form.fullname.data,
@@ -191,9 +139,12 @@ def login():
     if form.validate_on_submit():
         user_from_db = User.query.filter_by(email=form.email.data.lower()).first()
         if user_from_db and user_from_db.check_password(form.password.data):
+            # Log the user in first
             login_user(user_from_db, remember=form.remember.data)
 
+            # Now check verifications using current_user (which is user_from_db after login_user)
             if not current_user.email_confirmed:
+                 # Store email before logging out, as verify_email needs it if user is unauthenticated
                  session['signup_email_for_verification'] = user_from_db.email
                  logout_user() 
                  flash('Your email address is not verified. Please check your inbox or use the verification page to get a new code.', 'warning')
@@ -201,9 +152,10 @@ def login():
 
             if current_user.phone_number and not current_user.phone_confirmed:
                 flash('Please confirm your phone number to complete login. A code is being sent.', 'warning')
-                send_phone_verification_sms(current_user)
-                return redirect(url_for('verify_phone')) 
+                send_phone_verification_sms(current_user) # <<< ADD SMS SEND HERE
+                return redirect(url_for('verify_phone')) # User is logged in, so @login_required on verify_phone is met
 
+            # If all verifications passed (or phone not applicable)
             next_page = request.args.get('next')
             flash('Login successful!', 'success')
             return redirect(next_page or url_for('dashboard'))
@@ -226,37 +178,73 @@ def verify_email():
 
     if current_user.is_authenticated and not current_user.email_confirmed:
         user_to_verify = current_user
+        app.logger.info(f"[verify_email] Using current_user (ID: {user_to_verify.id}, Email: {user_to_verify.email}) for verification. Initial email_confirmed: {user_to_verify.email_confirmed}")
     elif email_to_verify:
         user_to_verify = User.query.filter_by(email=email_to_verify).first()
+        if user_to_verify:
+             app.logger.info(f"[verify_email] Found user (ID: {user_to_verify.id}, Email: {user_to_verify.email}) from session email. Initial email_confirmed: {user_to_verify.email_confirmed}")
+        else:
+             app.logger.warning(f"[verify_email] No user found for email from session: {email_to_verify}")
+
 
     if not user_to_verify:
         flash('No email found for verification. Please sign up or log in.', 'warning')
+        app.logger.warning("[verify_email] No user_to_verify found.")
         return redirect(url_for('signup'))
     
-    if user_to_verify.email_confirmed:
+    app.logger.info(f"[verify_email] Processing for user {user_to_verify.email} (ID: {user_to_verify.id}). Current instance email_confirmed: {user_to_verify.email_confirmed}")
+
+    if user_to_verify.email_confirmed: # Check if already confirmed before form validation
         flash('Your email is already confirmed.', 'info')
         if 'signup_email_for_verification' in session:
             session.pop('signup_email_for_verification', None)
         return redirect(url_for('dashboard') if current_user.is_authenticated else url_for('login'))
 
     if form.validate_on_submit():
-        if user_to_verify.verify_email_code(form.code.data):
+        app.logger.info(f"[verify_email] Form submitted for {user_to_verify.email}. Code: {form.code.data}")
+        if user_to_verify.verify_email_code(form.code.data): # This sets user_to_verify.email_confirmed = True
             try:
-                db.session.add(user_to_verify) 
+                app.logger.info(f"[verify_email] User {user_to_verify.email} (ID: {user_to_verify.id}) instance has email_confirmed = {user_to_verify.email_confirmed} after verify_email_code method call.")
+                
+                db.session.add(user_to_verify) # Explicitly add to session tracking
+                
+                app.logger.debug(f"[verify_email] Before commit for {user_to_verify.email}: session.dirty includes user? {user_to_verify in db.session.dirty}. Instance email_confirmed: {user_to_verify.email_confirmed}")
+
                 db.session.commit()
+                app.logger.info(f"[verify_email] DB commit successful for {user_to_verify.email}. email_confirmed should be True in DB.")
+
+                # CRITICAL DEBUG: Re-fetch to see what the DB (or session's post-commit state) says
+                # db.session.expire(user_to_verify) # Option 1: expire current instance
+                check_user_from_db = db.session.get(User, user_to_verify.id) # Option 2: get fresh
+                if check_user_from_db:
+                    app.logger.info(f"[verify_email] DEBUG: Re-fetched user {check_user_from_db.id} post-commit. DB/Session state email_confirmed: {check_user_from_db.email_confirmed}")
+                    # If check_user_from_db is not user_to_verify, update user_to_verify to this fresh instance
+                    # user_to_verify = check_user_from_db 
+                else:
+                    app.logger.error(f"[verify_email] DEBUG: Could not re-fetch user {user_to_verify.id} after commit.")
+
                 flash('Your email has been confirmed!', 'success')
                 if 'signup_email_for_verification' in session:
                     session.pop('signup_email_for_verification', None)
                 
+                # Ensure current_user reflects the confirmed state for THIS request's logic and for Flask-Login's session
                 if not current_user.is_authenticated or current_user.id != user_to_verify.id:
-                    login_user(user_to_verify) 
+                    app.logger.info(f"[verify_email] Logging in user {user_to_verify.email} (ID: {user_to_verify.id}) as they were not current_user or not authenticated.")
+                    login_user(user_to_verify) # user_to_verify has .email_confirmed = True from instance or re-fetch
                 elif current_user.id == user_to_verify.id and not current_user.email_confirmed:
-                    login_user(user_to_verify, force=True)
+                    # current_user was the one, but its instance might be stale. Re-login with the updated object.
+                    app.logger.info(f"[verify_email] current_user (ID: {current_user.id}) was user_to_verify. Forcing re-login to update session state with email_confirmed=True.")
+                    login_user(user_to_verify, force=True) # Use the user_to_verify object that has email_confirmed=True
                 
+                # Now, current_user should be the user whose email was just verified, and its email_confirmed should be True
+                app.logger.info(f"[verify_email] After login logic, current_user (ID: {current_user.id}) has email_confirmed: {current_user.email_confirmed}")
+
                 if current_user.phone_number and not current_user.phone_confirmed:
+                    app.logger.info(f"[verify_email] Redirecting user {current_user.email} to verify_phone. Phone confirmed: {current_user.phone_confirmed}")
                     send_phone_verification_sms(current_user)
                     return redirect(url_for('verify_phone'))
                 
+                app.logger.info(f"[verify_email] Redirecting user {current_user.email} to dashboard.")
                 return redirect(url_for('dashboard'))
             except Exception as e:
                 db.session.rollback()
@@ -265,7 +253,7 @@ def verify_email():
         else:
             flash('Invalid or expired verification code. Please try again or request a new one.', 'danger')
     
-    return render_template('auth/verify_email.html', title='Verify Email', form=form, email=user_to_verify.email)
+    return render_template('auth/verify_email.html', title='Verify Email', form=form, email=user_to_verify.email if user_to_verify else email_to_verify)
 
 @app.route('/resend_verification_email', methods=['POST'])
 def resend_verification_email():
@@ -276,7 +264,7 @@ def resend_verification_email():
             email = current_user.email
 
     if not email:
-        flash('Could not determine email address to resend verification.', 'danger')
+        flash('Could not determine email address to resend verification. Please try logging in again or contacting support.', 'danger')
         return redirect(url_for('login'))
 
     user = User.query.filter_by(email=email.lower()).first()
@@ -302,13 +290,20 @@ def resend_verification_email():
     return redirect(url_for('verify_email'))
 
 @app.route('/verify_phone', methods=['GET', 'POST'])
-@login_required
+@login_required # current_user is initially loaded here
 def verify_phone():
     form = VerificationCodeForm()
-    user = db.session.get(User, int(current_user.get_id()))
-    if not user:
+    # user_before_potential_relogin = current_user # Keep a reference if needed
+    
+    # It's safer to operate on a fresh query if you're changing its state
+    # and then re-logging in. This ensures the 'user' object is clean.
+    user = db.session.get(User, int(current_user.get_id())) # Get a fresh instance tied to the session
+    if not user: # Should not happen if @login_required worked
+        app.logger.error(f"[verify_phone] CRITICAL: User {current_user.get_id()} not found in DB after @login_required.")
         flash('An unexpected error occurred. Please try again.', 'danger')
         return redirect(url_for('login'))
+
+    app.logger.info(f"[verify_phone] Entered. User: {user.email} (ID: {user.id}). Initial Email_confirmed: {user.email_confirmed}, Initial Phone_confirmed: {user.phone_confirmed}")
 
     if not user.phone_number:
         flash('You do not have a phone number registered.', 'warning')
@@ -319,25 +314,47 @@ def verify_phone():
         return redirect(url_for('dashboard'))
 
     if form.validate_on_submit():
+        app.logger.info(f"[verify_phone] Form submitted for user {user.id}. Code: {form.code.data}")
         if user.verify_phone_code(form.code.data):
             try:
+                app.logger.info(f"[verify_phone] Phone code verification successful for user {user.id}.")
+                
                 user.phone_confirmed = True
+                app.logger.info(f"[verify_phone] User {user.id} instance phone_confirmed set to True.")
+                
+                # db.session.add(user) # Not strictly necessary if 'user' was fetched with db.session.get and modified
                 db.session.commit()
+                app.logger.info(f"[verify_phone] DB commit successful for user {user.id}. phone_confirmed is now True in DB for user.id {user.id}.")
+
+                # Re-login the user to update Flask-Login's session state.
+                # The 'user' object here is the one with user.phone_confirmed = True
                 login_user(user, force=True) 
+                
+                # IMPORTANT: For logging immediately after, refer to the 'user' object,
+                # as current_user proxy might still be resolving or could trigger recursion
+                # if _get_user is problematic under some edge conditions.
+                app.logger.info(f"[verify_phone] After re-login, logged-in user (ID: {user.id}) should have phone_confirmed: {user.phone_confirmed} (from user object)")
+
                 flash('Your phone number has been confirmed!', 'success')
                 
+                # Now, when redirecting, the NEXT request will use load_user, which will fetch the updated user.
+                # For the logic below within THIS request, we can rely on the 'user' object we have.
                 if not user.email_confirmed: 
+                    app.logger.info(f"[verify_phone] User {user.id} phone confirmed, but email NOT confirmed. Redirecting to verify_email.")
                     flash('Phone confirmed! Please also verify your email.', 'info')
                     session['signup_email_for_verification'] = user.email
                     return redirect(url_for('verify_email'))
                 else:
+                    app.logger.info(f"[verify_phone] User {user.id} phone AND email confirmed. Redirecting to dashboard.")
                     flash('All required verifications complete! Welcome!', 'success')
                     return redirect(url_for('dashboard'))
             except Exception as e:
                 db.session.rollback()
+                # Use the 'user' object here for username, not current_user if it might be unstable
                 app.logger.error(f"[verify_phone] Error during phone confirmation logic for {user.username if user else 'UNKNOWN USER'}: {e}", exc_info=True)
                 flash('An error occurred during phone verification. Please try again.', 'danger')
         else:
+            app.logger.warning(f"[verify_phone] Invalid or expired phone verification code submitted by user {user.id}.")
             flash('Invalid or expired phone verification code.', 'danger')
     
     return render_template('auth/verify_phone.html', title='Verify Phone Number', form=form, phone_number=user.phone_number)
@@ -354,7 +371,7 @@ def resend_phone_code():
         flash('Your phone number is already confirmed.', 'info')
         return redirect(url_for('dashboard'))
         
-    send_phone_verification_sms(user) # This now uses user.id
+    send_phone_verification_sms(user)
     flash('A new verification code is being sent to your phone. Please wait a moment.', 'success')
     return redirect(url_for('verify_phone'))
 
@@ -367,11 +384,11 @@ def reset_password_request_route():
         user = User.query.filter_by(email=form.email.data.lower()).first()
         if user:
             token = user.get_password_reset_token()
-            db.session.commit() # Save password_reset_token_expires_at
+            db.session.commit()
             send_password_reset_email(user, token)
             flash('An email has been sent with instructions to reset your password.', 'info')
         else:
-            flash('If an account with that email exists, a reset link has been sent.', 'info') # Generic message for privacy
+            flash('If an account with that email exists, a reset link has been sent.', 'info')
         return redirect(url_for('login'))
     return render_template('auth/reset_password_request.html', title='Reset Password', form=form)
 
@@ -387,7 +404,7 @@ def reset_password_token_route(token):
     form = ResetPasswordForm()
     if form.validate_on_submit():
         user.set_password(form.password.data)
-        user.password_reset_token_expires_at = None # Clear expiry after successful reset
+        user.password_reset_token_expires_at = None
         try:
             db.session.commit()
             flash('Your password has been reset successfully! You can now log in.', 'success')
@@ -403,186 +420,48 @@ def reset_password_token_route(token):
 def dashboard():
     app.logger.info(f"[dashboard] Entered. User: {current_user.email} (ID: {current_user.id}). Email_confirmed: {current_user.email_confirmed}, Phone_confirmed: {current_user.phone_confirmed}, Has Phone: {bool(current_user.phone_number)}")
 
+
     if not current_user.email_confirmed:
         flash('Please verify your email address to access the dashboard.', 'warning')
         session['signup_email_for_verification'] = current_user.email
+        app.logger.info(f"[dashboard] User {current_user.id} email not confirmed. Redirecting to verify_email.")
         return redirect(url_for('verify_email'))
     
     if current_user.phone_number and not current_user.phone_confirmed:
         flash('Please verify your phone number to access the dashboard.', 'warning')
+        # Optional: Send a new code if appropriate, or just redirect
+        # send_phone_verification_sms(current_user) # If you want to auto-send a new code
+        app.logger.info(f"[dashboard] User {current_user.id} phone registered but not confirmed. Redirecting to verify_phone.")
         return redirect(url_for('verify_phone'))
     
-    # --- Progress Tracking Data Calculation ---
-    user_progress_entries = MemorizationProgress.query.filter_by(user_id=current_user.id).all()
-    progress_map = {entry.page_number_quran: entry for entry in user_progress_entries}
-
-    memorized_pages_count = sum(1 for entry in user_progress_entries if entry.is_memorized)
-    overall_quran_progress_percent = (memorized_pages_count / QURAN_TOTAL_PAGES) * 100 if QURAN_TOTAL_PAGES > 0 else 0
-
-    juz_progress_data = []
-    for juz_num_iter in range(1, 31): # Iterate 1 to 30
-        juz_info = QURAN_JUZ_INFO_MAP.get(juz_num_iter)
-        if not juz_info:
-            app.logger.error(f"Missing juz_info for juz_num_iter {juz_num_iter}")
-            continue
-
-        pages_in_this_juz = get_pages_in_juz(juz_num_iter)
-        memorized_pages_in_juz_count = 0
-        for page_quran_num in pages_in_this_juz:
-            entry = progress_map.get(page_quran_num)
-            if entry and entry.is_memorized:
-                memorized_pages_in_juz_count += 1
-        
-        juz_completion_percent = (memorized_pages_in_juz_count / juz_info['num_pages']) * 100 if juz_info['num_pages'] > 0 else 0
-        
-        juz_progress_data.append({
-            'juz_number': juz_num_iter,
-            'completion_percent': round(juz_completion_percent, 1),
-            'total_pages': juz_info['num_pages'],
-            'memorized_pages': memorized_pages_in_juz_count
-        })
-    # --- End Progress Tracking Data ---
-    
+    # --- All mandatory verifications passed ---
     app.logger.info(f"[dashboard] User {current_user.id} passed all verification checks. Rendering dashboard.")
-    return render_template('dashboard.html', title='Dashboard',
-                           overall_quran_progress_percent=round(overall_quran_progress_percent, 1),
-                           juz_progress_data=juz_progress_data,
-                           QURAN_TOTAL_PAGES=QURAN_TOTAL_PAGES)
+    return render_template('dashboard.html', title='Dashboard')
 
+# app.py
 
-# --- API Endpoints for Progress Tracking ---
-@app.route('/api/progress/juz/<int:juz_number>')
-@login_required
-def get_juz_page_details(juz_number):
-    if not (1 <= juz_number <= 30):
-        return jsonify({'error': 'Invalid Juz number'}), 400
-
-    juz_info = QURAN_JUZ_INFO_MAP.get(juz_number)
-    if not juz_info: # Should not happen with valid juz_number
-        return jsonify({'error': 'Juz info not found'}), 404
-
-    pages_quran_numbers_in_juz = get_pages_in_juz(juz_number)
-    
-    user_progress_for_juz = MemorizationProgress.query.filter(
-        MemorizationProgress.user_id == current_user.id,
-        MemorizationProgress.page_number_quran.in_(pages_quran_numbers_in_juz)
-    ).all()
-    
-    progress_map = {entry.page_number_quran: entry for entry in user_progress_for_juz}
-    
-    page_details_list = []
-    for i, page_quran_num in enumerate(pages_quran_numbers_in_juz):
-        page_num_in_juz_display = i + 1 # 1-indexed for display
-        entry = progress_map.get(page_quran_num)
-        
-        mistakes = 0
-        is_memorized_flag = False
-        status_color = 'grey' # Default for not memorized or no data
-
-        if entry: # If there's any record for this page
-            mistakes = entry.mistakes_count
-            is_memorized_flag = entry.is_memorized
-            if entry.is_memorized:
-                if mistakes == 0:
-                    status_color = 'green'
-                elif 1 <= mistakes <= 3:
-                    status_color = 'orange'
-                else: # more than three
-                    status_color = 'red'
-            # else, it remains 'grey' as it's not marked memorized
-        
-        page_details_list.append({
-            'page_number_quran': page_quran_num,
-            'page_number_in_juz': page_num_in_juz_display,
-            'is_memorized': is_memorized_flag,
-            'mistakes_count': mistakes,
-            'status_color': status_color
-        })
-           
-    return jsonify({
-        'juz_number': juz_number,
-        'num_pages_in_juz': juz_info['num_pages'],
-        'pages': page_details_list
-    })
-
-@app.route('/api/progress/mark_page_memorized/<int:page_number_quran>', methods=['POST'])
-@login_required
-def mark_page_memorized(page_number_quran):
-    if not (1 <= page_number_quran <= QURAN_TOTAL_PAGES):
-        return jsonify({'error': 'Invalid Quran page number'}), 400
-
-    juz_num_for_page = get_juz_for_page(page_number_quran)
-    if not juz_num_for_page:
-        return jsonify({'error': 'Could not determine Juz for page'}), 400
-
-    progress_entry = MemorizationProgress.query.filter_by(
-        user_id=current_user.id,
-        page_number_quran=page_number_quran
-    ).first()
-
-    if not progress_entry:
-        progress_entry = MemorizationProgress(
-            user_id=current_user.id,
-            page_number_quran=page_number_quran,
-            juz_number=juz_num_for_page,
-            is_memorized=True,
-            memorized_at=datetime.datetime.utcnow(),
-            mistakes_count=0 # Default to 0 mistakes when self-marking
-        )
-        db.session.add(progress_entry)
-    else:
-        progress_entry.is_memorized = True
-        progress_entry.memorized_at = datetime.datetime.utcnow()
-        progress_entry.mistakes_count = 0 # Reset mistakes on self-re-affirmation of memorization
-
-    try:
-        db.session.commit()
-        return jsonify({'success': True, 'message': f'Page {page_number_quran} marked as memorized.'}), 200
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error marking page {page_number_quran} memorized for user {current_user.id}: {e}")
-        return jsonify({'error': 'Could not update progress.'}), 500
-
-@app.route('/api/progress/unmark_page_memorized/<int:page_number_quran>', methods=['POST'])
-@login_required
-def unmark_page_memorized(page_number_quran):
-    progress_entry = MemorizationProgress.query.filter_by(
-        user_id=current_user.id,
-        page_number_quran=page_number_quran
-    ).first()
-
-    if progress_entry:
-        progress_entry.is_memorized = False
-        # progress_entry.memorized_at = None # Optional: clear memorized_at
-        # Keep mistake_count as is, or reset? For now, keep.
-        try:
-            db.session.commit()
-            return jsonify({'success': True, 'message': f'Page {page_number_quran} unmarked.'}), 200
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error unmarking page {page_number_quran} for user {current_user.id}: {e}")
-            return jsonify({'error': 'Could not update progress.'}), 500
-    return jsonify({'error': 'Progress entry not found for this page and user.'}), 404
-# --- End API Endpoints ---
-
+# ... (other imports and code) ...
 
 @app.route('/call')
 @login_required
 def call():
-    app.logger.info(f"[call] Entered. User: {current_user.email} (ID: {current_user.id}).")
+    app.logger.info(f"[call] Entered. User: {current_user.email} (ID: {current_user.id}). Email_confirmed: {current_user.email_confirmed}, Phone_confirmed: {current_user.phone_confirmed}, Has Phone: {bool(current_user.phone_number)}")
+
     if not current_user.email_confirmed:
         flash('Please confirm your email address before making/joining a call.', 'warning')
-        return redirect(url_for('verify_email'))
+        app.logger.info(f"[call] User {current_user.id} email not confirmed. Redirecting to verify_email.")
+        return redirect(url_for('verify_email')) # Or redirect to dashboard which will then redirect
+    
     if current_user.phone_number and not current_user.phone_confirmed:
         flash('Please verify your phone number before making/joining calls.', 'warning')
+        app.logger.info(f"[call] User {current_user.id} phone registered but not confirmed. Redirecting to verify_phone.")
         return redirect(url_for('verify_phone'))
-    # Removed hard requirement for phone number for calls, as per original description for Listeners (only voice interview).
-    # Memorizers just need basic verification.
-    # if not current_user.phone_number:
-    #     flash('A verified phone number is required to make/join calls. Please add and verify one in your profile.', 'warning')
-    #     return redirect(url_for('dashboard')) 
+    elif not current_user.phone_number:
+        flash('A verified phone number is required to make/join calls. Please add and verify one in your profile.', 'warning')
+        app.logger.info(f"[call] User {current_user.id} has no phone number. Redirecting to dashboard (or profile page).")
+        return redirect(url_for('dashboard')) # Or a profile page to add phone
 
-    app.logger.info(f"[call] User {current_user.id} passed checks for call. Rendering call page.")
+    app.logger.info(f"[call] User {current_user.id} passed all verification checks for call. Rendering call page.")
     return render_template('call.html', title='Voice Call')
 
 
@@ -601,30 +480,25 @@ def internal_error(error):
     return render_template('errors/500.html'), 500
 
 # --- SocketIO Event Handlers ---
-# (SocketIO handlers remain unchanged from your provided code)
+
 @socketio.on('connect')
 def on_connect(auth=None): 
     logger = current_app.logger
     if current_user.is_authenticated:
         logger.info(f"Authenticated client connected: {current_user.username} ({request.sid})")
-        auth_status_payload = {'authenticated': True, 'email_confirmed': current_user.email_confirmed}
         if not current_user.email_confirmed:
-            auth_status_payload['message'] = 'Email not verified.'
+            emit('auth_status', {'email_confirmed': False, 'authenticated': True, 'message': 'Email not verified.'}, room=request.sid)
             logger.warning(f"User {current_user.username} connected via SocketIO but email not verified.")
-        
-        # Add phone status if phone exists
-        if current_user.phone_number:
-            auth_status_payload['phone_exists'] = True
-            auth_status_payload['phone_confirmed'] = current_user.phone_confirmed
-            if not current_user.phone_confirmed:
-                 auth_status_payload['message'] = auth_status_payload.get('message', '') + ' Phone not verified.'
+        # Optional: Add phone confirmed status
+        # elif current_user.phone_number and not current_user.phone_confirmed:
+        #     emit('auth_status', {'phone_confirmed': False, 'email_confirmed': True, 'authenticated': True, 'message': 'Phone not verified.'}, room=request.sid)
         else:
-            auth_status_payload['phone_exists'] = False
-        
-        emit('auth_status', auth_status_payload, room=request.sid)
+            # Assuming phone is either confirmed or not present if email is confirmed
+            emit('auth_status', {'authenticated': True, 'email_confirmed': True, 'phone_confirmed': current_user.phone_confirmed if current_user.phone_number else True}, room=request.sid)
     else:
         logger.warning(f"Unauthenticated client connected: {request.sid}")
         emit('auth_status', {'authenticated': False, 'message': 'Not authenticated.'}, room=request.sid)
+        # disconnect() # Consider disconnecting unauthenticated users
 
 @socketio.on('disconnect')
 def on_disconnect(*args):
@@ -645,7 +519,7 @@ def on_disconnect(*args):
                 emit('peer_left', {'sid': sid_to_remove, 'room': room_id}, room=room_id, include_self=False)
                 if room_id in user_states_in_rooms and sid_to_remove in user_states_in_rooms[room_id]:
                     del user_states_in_rooms[room_id][sid_to_remove]
-            break
+            break # Assuming user is in one room at most for this simple cleanup
 
 @socketio.on('join_call')
 def on_join_call(data):
@@ -660,6 +534,12 @@ def on_join_call(data):
         emit('error_joining', {'message': 'Email verification required to join a call.'})
         return
     
+    # Optional: Check phone verification for calls
+    # if current_user.phone_number and not current_user.phone_confirmed:
+    #     logger.warning(f"User {current_user.username} ({request.sid}) attempted to join call with unverified phone.")
+    #     emit('error_joining', {'message': 'A verified phone number is required to join calls.'})
+    #     return
+
     room_id = data.get('room')
     if not room_id:
         logger.warning(f"User {request.sid} tried to join without specifying a room.")
@@ -678,15 +558,22 @@ def on_join_call(data):
 
     if other_sids_in_room:
         emit('existing_peers', {'sids': other_sids_in_room, 'room': room_id}, room=request.sid)
+        logger.info(f"Sent existing peers {other_sids_in_room} to {request.sid} for room {room_id}")
+
     emit('peer_joined', {'sid': request.sid, 'username': current_user.username, 'room': room_id}, room=room_id, include_self=False)
+    logger.info(f"Notified room {room_id} that {request.sid} ({current_user.username}) joined.")
 
 @socketio.on('leave_call')
 def on_leave_call(data):
     logger = current_app.logger
-    if not current_user.is_authenticated: return
+    if not current_user.is_authenticated:
+        logger.warning(f"Unauthenticated user {request.sid} attempted to leave call.")
+        return
 
     room_id = data.get('room')
-    if not room_id: return
+    if not room_id:
+        logger.warning(f"User {request.sid} tried to leave without specifying a room.")
+        return
 
     if room_id in rooms_data and request.sid in rooms_data[room_id]:
         leave_room(room_id)
@@ -702,15 +589,21 @@ def on_leave_call(data):
             del rooms_data[room_id]
             if room_id in user_states_in_rooms: del user_states_in_rooms[room_id]
             logger.info(f"Room {room_id} is now empty and removed after user left.")
+    else:
+        logger.warning(f"User {request.sid} tried to leave room {room_id} but was not found in it.")
 
 @socketio.on('signal')
 def on_signal(data):
     logger = current_app.logger
-    if not current_user.is_authenticated: return
+    if not current_user.is_authenticated:
+        logger.warning(f"Unauthenticated user {request.sid} attempted to send a signal.")
+        return
 
     to_sid = data.get('to_sid')
     signal_payload = data.get('signal')
-    if not to_sid or signal_payload is None: return
+    if not to_sid or signal_payload is None:
+        logger.warning(f"Invalid signal data from {request.sid}: {data}")
+        return
     emit('signal', {'from_sid': request.sid, 'signal': signal_payload}, room=to_sid)
 
 @socketio.on('speaking_status')
@@ -720,12 +613,16 @@ def on_speaking_status(data):
 
     room_id = data.get('room')
     speaking = data.get('speaking')
-    if room_id is None or speaking is None: return
+    if room_id is None or speaking is None:
+        logger.warning(f"Invalid speaking_status data from {request.sid}: {data}")
+        return
 
     if room_id in rooms_data and request.sid in rooms_data[room_id]:
         if room_id in user_states_in_rooms and request.sid in user_states_in_rooms[room_id]:
             user_states_in_rooms[room_id][request.sid]['speaking'] = speaking
         emit('speaking_status', {'sid': request.sid, 'speaking': speaking, 'room': room_id}, room=room_id, include_self=False)
+    else:
+        logger.warning(f"User {request.sid} sent speaking status for room {room_id} but is not in it or room doesn't exist.")
 
 @socketio.on('remote_mute_request')
 def on_remote_mute_request(data):
@@ -734,11 +631,15 @@ def on_remote_mute_request(data):
 
     room_id = data.get('room')
     target_sid = data.get('target_sid')
-    if not room_id or not target_sid: return
+    if not room_id or not target_sid:
+        logger.warning(f"Invalid remote_mute_request data from {request.sid}: {data}")
+        return
 
     if room_id in rooms_data and request.sid in rooms_data[room_id] and target_sid in rooms_data[room_id]:
+        logger.info(f"User {request.sid} requests mute for {target_sid} in room {room_id}.")
         emit('force_mute', {'requester_sid': request.sid, 'room': room_id}, room=target_sid)
-# --- End SocketIO ---
+    else:
+        logger.warning(f"User {request.sid} attempted to mute {target_sid} in room {room_id}, but conditions not met.")
 
 # --- Flask CLI Commands ---
 @app.cli.command('db-create')
@@ -774,6 +675,8 @@ if __name__ == '__main__':
     
     print(f"Attempting to start SocketIO server on {host}:{port}")
     try:
+        # For production with eventlet/gunicorn, use_reloader should be False.
+        # For local dev, use_reloader=use_flask_debug is often fine.
         socketio.run(app, host=host, port=port, use_reloader=use_flask_debug, log_output=True, debug=use_flask_debug)
     except Exception as e:
          logging.error(f"Failed to start SocketIO server: {e}", exc_info=True)
