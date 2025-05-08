@@ -413,35 +413,52 @@ def reset_password_token_route(token):
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    app.logger.info(f"[dashboard] Entered. User: {current_user.email} (ID: {current_user.id}). Email_confirmed: {current_user.email_confirmed}, Phone_confirmed: {current_user.phone_confirmed}")
+    app.logger.info(f"[dashboard] Entered. User: {current_user.email} (ID: {current_user.id}). Email_confirmed: {current_user.email_confirmed}, Phone_confirmed: {current_user.phone_confirmed}, Has Phone: {bool(current_user.phone_number)}")
+
+
     if not current_user.email_confirmed:
         flash('Please verify your email address to access the dashboard.', 'warning')
         session['signup_email_for_verification'] = current_user.email
+        app.logger.info(f"[dashboard] User {current_user.id} email not confirmed. Redirecting to verify_email.")
         return redirect(url_for('verify_email'))
     
-    # Optional check: If phone is registered but not verified, prompt user
     if current_user.phone_number and not current_user.phone_confirmed:
-        flash('Your phone number is not yet verified. Please complete verification for full account security.', 'info')
-        # Consider redirecting to verify_phone or just showing a banner on dashboard
-
+        flash('Please verify your phone number to access the dashboard.', 'warning')
+        # Optional: Send a new code if appropriate, or just redirect
+        # send_phone_verification_sms(current_user) # If you want to auto-send a new code
+        app.logger.info(f"[dashboard] User {current_user.id} phone registered but not confirmed. Redirecting to verify_phone.")
+        return redirect(url_for('verify_phone'))
+    
+    # --- All mandatory verifications passed ---
+    app.logger.info(f"[dashboard] User {current_user.id} passed all verification checks. Rendering dashboard.")
     return render_template('dashboard.html', title='Dashboard')
+
+# app.py
+
+# ... (other imports and code) ...
 
 @app.route('/call')
 @login_required
 def call():
-    if not current_user.email_confirmed:
-        flash('Please confirm your email address before joining a call.', 'warning')
-        return redirect(url_for('dashboard'))
-    
-    # Optional: if phone verification is required for calls
-    # if current_user.phone_number and not current_user.phone_confirmed:
-    #     flash('Please verify your phone number before making/joining calls.', 'warning')
-    #     return redirect(url_for('verify_phone'))
-    # elif not current_user.phone_number:
-    #     flash('A verified phone number is required to make/join calls. Please add and verify one.', 'warning')
-    #     return redirect(url_for('dashboard'))
+    app.logger.info(f"[call] Entered. User: {current_user.email} (ID: {current_user.id}). Email_confirmed: {current_user.email_confirmed}, Phone_confirmed: {current_user.phone_confirmed}, Has Phone: {bool(current_user.phone_number)}")
 
+    if not current_user.email_confirmed:
+        flash('Please confirm your email address before making/joining a call.', 'warning')
+        app.logger.info(f"[call] User {current_user.id} email not confirmed. Redirecting to verify_email.")
+        return redirect(url_for('verify_email')) # Or redirect to dashboard which will then redirect
+    
+    if current_user.phone_number and not current_user.phone_confirmed:
+        flash('Please verify your phone number before making/joining calls.', 'warning')
+        app.logger.info(f"[call] User {current_user.id} phone registered but not confirmed. Redirecting to verify_phone.")
+        return redirect(url_for('verify_phone'))
+    elif not current_user.phone_number:
+        flash('A verified phone number is required to make/join calls. Please add and verify one in your profile.', 'warning')
+        app.logger.info(f"[call] User {current_user.id} has no phone number. Redirecting to dashboard (or profile page).")
+        return redirect(url_for('dashboard')) # Or a profile page to add phone
+
+    app.logger.info(f"[call] User {current_user.id} passed all verification checks for call. Rendering call page.")
     return render_template('call.html', title='Voice Call')
+
 
 @app.errorhandler(404)
 def not_found_error(error):
