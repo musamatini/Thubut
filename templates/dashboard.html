@@ -2,11 +2,11 @@
 
 {% block styles %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/quran_progress.css') }}"> {# New CSS file for Quran styles #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/quran_progress.css') }}">
 <style>
     /* Styles from original dashboard kept for context, can be moved or merged */
     .dashboard-header {
-        background-color: var(--surface-color); /* Using CSS var */
+        background-color: var(--surface-color); 
         color: var(--text-light-color);
         padding: 2rem 1rem;
         margin-bottom: 2rem;
@@ -20,18 +20,18 @@
         background-color: var(--surface-color);
         color: var(--text-color);
     }
-    #participantList {
+    #participantList { /* Copied from your original dashboard styles block */
         list-style-type: none;
         padding-left: 0;
         max-height: 300px;
         overflow-y: auto;
-        border: 1px solid var(--border-color);
+        border: 1px solid var(--border-color); /* Adjusted */
         margin-top: 1rem;
-        background-color: var(--bg-secondary-color);
+        background-color: var(--bg-secondary-color); /* Adjusted */
     }
     .participant {
         padding: 0.75rem 1rem;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color); /* Adjusted */
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -42,11 +42,21 @@
         border-bottom: none;
     }
     .participant.speaking {
-        background-color: #3a3a3a; /* Slightly lighter dark bg */
+        background-color: #3a3a3a; 
         font-weight: bold;
         color: var(--secondary-color);
     }
-    /* ... other specific call styles ... */
+    /* Other specific call styles from original block */
+    .participant-info { flex-grow: 1; }
+    .participant-status { font-size: 0.9em; padding: 0.2em 0.5em; border-radius: 0.2em; margin-left: 10px; min-width: 80px; text-align: center; }
+    .status-connecting, .status-new { background-color: var(--warning-color); color: #000; } /* Adjusted with var */
+    .status-connected, .status-completed { background-color: #28a745; color: white; }
+    .status-failed, .status-disconnected, .status-closed { background-color: var(--danger-color); color: white; } /* Adjusted with var */
+    .local-status.muted { background-color: #6c757d; color: white; }
+    .local-status { background-color: #17a2b8; color: white; }
+    .mute-peer-btn { font-size: 0.8em; padding: 0.25em 0.5em; margin-left: 10px; }
+    .muteBtn.muted { background-color: var(--danger-color); border-color: var(--danger-color); } /* Adjusted with var */
+    #remoteAudios { display: none; }
 </style>
 {% endblock %}
 
@@ -64,31 +74,30 @@
                 <div class="card-header">
                     <h3>Your Juzz Progress</h3>
                 </div>
-                <div class="card-body">
+                <div class="card-body"> {# card-body is useful for consistent padding if grid doesn't fill it #}
                     {% if juzz_progress_list %}
                     <div class="juzz-grid-container">
                         {% for j_data in juzz_progress_list %}
                         <a href="{{ url_for('juz_detail', juz_number=j_data.number) }}" class="juzz-square-link">
-                            <div class="juzz-square">
-                                <div class="juzz-number">Juzz {{ j_data.number }}</div>
-                                <div class="juzz-progress-bar-container">
-                                    <div class="juzz-progress-bar" style="width: {{ j_data.percentage }}%;">
-                                    </div>
+                            {# Content directly inside the <a> tag, which is styled as the square #}
+                            <div class="juzz-number">Juzz {{ j_data.number }}</div>
+                            <div class="juzz-progress-bar-container">
+                                <div class="juzz-progress-bar" style="width: {{ j_data.percentage }}%;">
                                 </div>
-                                <div class="juzz-percentage">{{ j_data.percentage }}%</div>
                             </div>
+                            <div class="juzz-percentage">{{ j_data.percentage }}%</div>
                         </a>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p>No Juzz progress data available yet. Start memorizing!</p>
+                    <p class="p-3">No Juzz progress data available yet. Start memorizing!</p> {# Added padding if no data #}
                     {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-
+    {# Rest of the dashboard content (Account Status, Voice Call) remains the same #}
     <div class="row">
         <!-- Account Status Column -->
         <div class="col-md-4 mb-4">
@@ -121,7 +130,6 @@
                             {% endif %}
                         {% else %}
                             <span class="text-muted">Not Provided</span>
-                            {# <br><small><a href="#">Add Phone</a></small> #} {# Link to profile edit page #}
                         {% endif %}
                     </li>
                      <li class="list-group-item">
@@ -129,7 +137,7 @@
                     </li>
                 </ul>
                  <div class="card-footer">
-                    <a href="#" class="btn btn-sm btn-outline-primary">Edit Profile</a> {# TODO: Link to profile edit page #}
+                    <a href="#" class="btn btn-sm btn-outline-primary">Edit Profile</a>
                     <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-danger float-end">Logout</a>
                 </div>
             </div>
@@ -157,21 +165,19 @@
                 </div>
 
                 <h4 class="mt-4">Participants:</h4>
-                <div id="participantList">
-                    <!-- Participant divs will be added here by webrtc.js -->
-                </div>
+                <div id="participantList"></div>
                 <div id="remoteAudios" style="display: none;"></div>
                 {% endif %}
             </div>
         </div>
     </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 {% if current_user.is_authenticated and current_user.email_confirmed %}
-    {# Socket.IO is already in layout.html, ensure it's loaded before webrtc.js #}
     <script src="{{ url_for('static', filename='js/webrtc.js') }}"></script>
 {% endif %}
 {% endblock %}
