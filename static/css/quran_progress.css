@@ -1,0 +1,168 @@
+/* static/css/quran_progress.css */
+
+/* Juzz Grid on Dashboard */
+.juzz-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Responsive columns */
+    gap: 15px;
+    padding: 10px;
+}
+
+.juzz-square-link {
+    text-decoration: none;
+    color: inherit; /* Inherit text color from parent */
+}
+
+.juzz-square {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 15px;
+    text-align: center;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 130px; /* Fixed height for consistency */
+}
+
+.juzz-square:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--box-shadow-lifted);
+    border-color: var(--primary-color);
+}
+
+.juzz-number {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--text-light-color);
+    margin-bottom: 10px;
+}
+
+.juzz-progress-bar-container {
+    width: 100%;
+    height: 12px;
+    background-color: var(--bg-secondary-color); /* Darker background for the bar track */
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.juzz-progress-bar {
+    height: 100%;
+    background-color: var(--secondary-color); /* Teal for progress */
+    border-radius: var(--border-radius-sm);
+    transition: width 0.5s ease-in-out;
+}
+
+.juzz-percentage {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-muted-color);
+}
+
+/* Page Grid on Juzz Detail Page */
+.page-grid-container {
+    display: grid;
+    /* Aim for ~5 columns for 20 pages, adjust minmax for desired square size */
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); 
+    gap: 12px;
+    padding: 10px 0;
+}
+
+.page-square {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 12px;
+    text-align: center;
+    min-height: 100px; /* Minimum height */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Vertically center content */
+    align-items: center; /* Horizontally center content */
+    transition: border-color 0.2s ease;
+}
+.page-square:hover {
+    border-color: var(--primary-light-color);
+}
+
+.page-number-in-juz {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-muted-color);
+    margin-bottom: 8px;
+}
+
+.page-mistakes {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--text-light-color);
+}
+.page-mistakes .text-muted { /* For N/A */
+    font-size: 1rem;
+    font-weight: normal;
+}
+
+
+/* Page Square Color Coding */
+.page-green {
+    background-color: rgba(76, 175, 80, 0.15); /* Light green background tint */
+    border-left: 5px solid #4CAF50; /* Green accent border */
+}
+.page-green .page-mistakes { color: #4CAF50; }
+
+
+.page-orange {
+    background-color: rgba(255, 152, 0, 0.15); /* Light orange background tint */
+    border-left: 5px solid #FF9800; /* Orange accent border */
+}
+.page-orange .page-mistakes { color: #FF9800; }
+
+
+.page-red {
+    background-color: rgba(244, 67, 54, 0.15); /* Light red background tint */
+    border-left: 5px solid #F44336; /* Red accent border */
+}
+.page-red .page-mistakes { color: #F44336; }
+
+.page-grey { /* For not recorded pages */
+    background-color: var(--bg-secondary-color); /* Slightly different from main surface */
+    border-left: 5px solid var(--border-color);
+}
+.page-grey .page-mistakes .text-muted {
+    color: var(--text-muted-color) !important;
+}
+
+
+/* Key for colors on Juzz Detail Page */
+.page-square-key {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-right: 0.5em;
+    vertical-align: middle;
+    border-radius: 2px;
+}
+
+/* Example for card headers if needed */
+.card .card-header h3 {
+    margin-bottom: 0;
+    color: var(--primary-light-color);
+}
+.list-group-item { /* Improve list group item styling for dark theme */
+    background-color: var(--surface-color);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+.list-group-item strong {
+    color: var(--text-light-color);
+}
+.list-group-flush > .list-group-item:last-child {
+    border-bottom-width: 1px; /* Ensure last item has a border if it's the actual last */
+}
+.card-footer {
+    background-color: var(--bg-secondary-color);
+    border-top: 1px solid var(--border-color);
+}
