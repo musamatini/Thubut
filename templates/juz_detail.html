@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/quran_progress.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="page-header">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary mb-3 d-inline-flex align-items-center">
+            ← Back to Dashboard
+        </a>
+        <h1>Juzz {{ juz_number }} <small class="text-muted">({{ pages_in_this_juz }} Pages)</small></h1>
+        <p class="lead">Review your memorization page by page for Juzz {{ juz_number }}.</p>
+    </div>
+
+    {% if page_records_list %}
+    <div class="page-grid-container">
+        {% for page_data in page_records_list %}
+        <div class="page-square {{ page_data.color_class }}">
+            <div class="page-number-in-juz">Page {{ page_data.number_in_juz }}</div>
+            <div class="page-mistakes">
+                {% if page_data.mistakes == -1 %}
+                    <span class="text-muted" title="Not yet reviewed">N/A</span>
+                {% elif page_data.mistakes == 0 %}
+                    <span title="No mistakes">Perfect!</span>
+                {% elif page_data.mistakes == 1 %}
+                    <span title="1 mistake">{{ page_data.mistakes }} mistake</span>
+                {% else %}
+                    <span title="{{ page_data.mistakes }} mistakes">{{ page_data.mistakes }} mistakes</span>
+                {% endif %}
+            </div>
+            {# Example: Add a link/button to update mistakes for this page later #}
+            {# <a href="#" class="btn btn-sm btn-edit-mistakes mt-2">Record</a> #}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        No page data found for Juzz {{ juz_number }}. This Juzz might not have been started yet.
+    </div>
+    {% endif %}
+
+    <div class="mt-4 p-3 card">
+        <h4>Key:</h4>
+        <ul class="list-unstyled">
+            <li><span class="page-square-key page-green"></span> Perfect (0 Mistakes)</li>
+            <li><span class="page-square-key page-orange"></span> Minor (1-2 Mistakes)</li>
+            <li><span class="page-square-key page-red"></span> Needs Review (3+ Mistakes)</li>
+            <li><span class="page-square-key page-grey"></span> Not Recorded</li>
+        </ul>
+    </div>
+
+</div>
+{% endblock %}
